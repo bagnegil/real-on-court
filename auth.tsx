@@ -4,9 +4,13 @@ import { supabase } from './supabase';
 
 type AuthResult = { error?: string; needsConfirmation?: boolean };
 
+// The app owner who moderates new courts. UI-level gate for the prototype.
+export const OWNER_EMAIL = 'bagnegil@gmail.com';
+
 type Auth = {
   session: Session | null;
   playerName: string | null;
+  isOwner: boolean;
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (name: string, email: string, password: string) => Promise<AuthResult>;
@@ -75,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         session,
         playerName: nameFromSession(session),
+        isOwner: session?.user.email === OWNER_EMAIL,
         initializing,
         signIn,
         signUp,

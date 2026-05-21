@@ -1,21 +1,39 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Challenge, ChallengeStatus, Court, Match, Player } from './data';
+import { Challenge, ChallengeStatus, Club, Country, Court, CourtStatus, Match, Player } from './data';
 import { supabase } from './supabase';
 
 // Returned by every mutation so callers can react to failure instead of
 // assuming success. recordChallengeResult adds the human-readable outcome note.
 type Result = { error?: string };
 
+// A new court request. Country/club are referenced by id, or created by name.
+export type AddCourtInput = {
+  countryId?: string;
+  newCountryName?: string;
+  clubId?: string;
+  newClubName?: string;
+  number: number;
+  w3w: string | null;
+  champions: [string, string];
+};
+
 type Store = {
   courts: Court[];
   challenges: Challenge[];
   matches: Match[];
   players: Player[];
+  countries: Country[];
+  clubs: Club[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   getCourt: (id: string) => Court | undefined;
   getPlayer: (name: string) => Player | undefined;
+  getClub: (id: string | null) => Club | undefined;
+  getCountry: (id: string | null) => Country | undefined;
+  addCourt: (input: AddCourtInput) => Promise<Result>;
+  setCourtStatus: (courtId: string, status: CourtStatus) => Promise<Result>;
+  updateCourtW3W: (courtId: string, w3w: string) => Promise<Result>;
   challengesForCourt: (courtId: string) => Challenge[];
   matchesForCourt: (courtId: string) => Match[];
   updatePlayer: (name: string, fields: Partial<Omit<Player, 'name'>>) => Promise<Result>;
@@ -44,7 +62,18 @@ type Store = {
 const StoreContext = createContext<Store | null>(null);
 
 // Supabase row shapes (snake_case, a pair stored as two text columns; both null = vacant).
-type CourtRow = { id: string; number: number; champion1: string | null; champion2: string | null };
+type CourtRow = {
+  id: string;
+  number: number;
+  champion1: string | null;
+  champion2: string | null;
+  club_id: string | null;
+  status: CourtStatus;
+  w3w: string | null;
+  created_by: string | null;
+};
+type ClubRow = { id: string; name: string; country_id: string | null };
+type CountryRow = { id: string; name: string };
 type ChallengeRow = {
   id: string;
   court_id: string;
@@ -95,7 +124,19 @@ function toCourt(r: CourtRow): Court {
     id: r.id,
     number: r.number,
     champions: r.champion1 && r.champion2 ? [r.champion1, r.champion2] : null,
+    clubId: r.club_id,
+    status: r.status,
+    w3w: r.w3w,
+    createdBy: r.created_by,
   };
+}
+
+function toClub(r: ClubRow): Club {
+  return { id: r.id, name: r.name, countryId: r.country_id };
+}
+
+function toCountry(r: CountryRow): Country {
+  return { id: r.id, name: r.name };
 }
 
 function toChallenge(r: ChallengeRow): Challenge {
@@ -126,18 +167,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setError(null);
-    const [c, ch, ma, pl] = await Promise.all([
+    const [c, ch, ma, pl, co, cl] = await Promise.all([
       supabase.from('courts').select('*').order('number'),
       supabase.from('challenges').select('*').order('created_at'),
       supabase.from('matches').select('*').order('created_at', { ascending: false }),
       supabase.from('players').select('*'),
+      supabase.from('countries').select('*').order('name'),
+      supabase.from('clubs').select('*').order('name'),
     ]);
-    const failed = c.error || ch.error || ma.error || pl.error;
+    const failed = c.error || ch.error || ma.error || pl.error || co.error || cl.error;
     if (failed) {
       setError(failed.message);
       setLoading(false);
@@ -147,6 +192,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setChallenges((ch.data ?? []).map(toChallenge));
     setMatches((ma.data ?? []).map(toMatch));
     setPlayers((pl.data ?? []).map(toPlayer));
+    setCountries((co.data ?? []).map(toCountry));
+    setClubs((cl.data ?? []).map(toClub));
     setLoading(false);
   }
 
@@ -173,6 +220,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   function getPlayer(name: string) {
     return players.find((p) => p.name === name);
+  }
+
+  function getClub(id: string | null) {
+    return id ? clubs.find((c) => c.id === id) : undefined;
+  }
+
+  function getCountry(id: string | null) {
+    return id ? countries.find((c) => c.id === id) : undefined;
+  }
+
+  function fail(message: string): Result {
+    setError(message);
+    return { error: message };
   }
 
   function challengesForCourt(courtId: string) {
@@ -380,6 +440,75 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {};
   }
 
+  async function addCourt(input: AddCourtInput): Promise<Result> {
+    let countryId = input.countryId ?? null;
+    if (!countryId && input.newCountryName?.trim()) {
+      const { data, error: err } = await supabase
+        .from('countries')
+        .insert({ name: input.newCountryName.trim() })
+        .select()
+        .single();
+      if (err) return fail(err.message);
+      countryId = data.id;
+      setCountries((prev) => [...prev, toCountry(data)]);
+    }
+
+    let clubId = input.clubId ?? null;
+    if (!clubId && input.newClubName?.trim()) {
+      const { data, error: err } = await supabase
+        .from('clubs')
+        .insert({ name: input.newClubName.trim(), country_id: countryId })
+        .select()
+        .single();
+      if (err) return fail(err.message);
+      clubId = data.id;
+      setClubs((prev) => [...prev, toClub(data)]);
+    }
+    if (!clubId) return { error: 'Pick or name a club.' };
+
+    const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+    const { data, error: err } = await supabase
+      .from('courts')
+      .insert({
+        club_id: clubId,
+        number: input.number,
+        champion1: input.champions[0],
+        champion2: input.champions[1],
+        w3w: input.w3w,
+        status: 'pending',
+        created_by: userId,
+      })
+      .select()
+      .single();
+    if (err) return fail(err.message);
+    setCourts((prev) => [...prev, toCourt(data)]);
+    return {};
+  }
+
+  async function setCourtStatus(courtId: string, status: CourtStatus): Promise<Result> {
+    const { data, error: err } = await supabase
+      .from('courts')
+      .update({ status })
+      .eq('id', courtId)
+      .select()
+      .single();
+    if (err) return fail(err.message);
+    setCourts((prev) => prev.map((c) => (c.id === courtId ? toCourt(data) : c)));
+    return {};
+  }
+
+  async function updateCourtW3W(courtId: string, w3w: string): Promise<Result> {
+    const { data, error: err } = await supabase
+      .from('courts')
+      .update({ w3w })
+      .eq('id', courtId)
+      .select()
+      .single();
+    if (err) return fail(err.message);
+    setCourts((prev) => prev.map((c) => (c.id === courtId ? toCourt(data) : c)));
+    return {};
+  }
+
   return (
     <StoreContext.Provider
       value={{
@@ -387,11 +516,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         challenges,
         matches,
         players,
+        countries,
+        clubs,
         loading,
         error,
         refresh,
         getCourt,
         getPlayer,
+        getClub,
+        getCountry,
+        addCourt,
+        setCourtStatus,
+        updateCourtW3W,
         challengesForCourt,
         matchesForCourt,
         proposeChallenge,

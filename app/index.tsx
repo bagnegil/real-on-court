@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Link, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
-import { CLUB_NAME, Court } from '../data';
+import { Court } from '../data';
 import { useStore } from '../store';
 import { useAuth } from '../auth';
 import { ballImg, crownImg } from '../images';
@@ -64,7 +64,24 @@ function CourtRow({ court }: { court: Court }) {
 }
 
 export default function CourtsScreen() {
-  const { courts, loading, error } = useStore();
+  const router = useRouter();
+  const { courts, clubs, countries, loading, error } = useStore();
+  const { playerName, isOwner } = useAuth();
+
+  const approved = courts.filter((c) => c.status === 'approved');
+  const pendingCount = courts.filter((c) => c.status === 'pending').length;
+
+  // country -> clubs -> approved courts (only branches that actually have courts)
+  const grouped = countries
+    .map((country) => ({
+      country,
+      clubs: clubs
+        .filter((cl) => cl.countryId === country.id)
+        .map((cl) => ({ club: cl, courts: approved.filter((c) => c.clubId === cl.id) }))
+        .filter((g) => g.courts.length > 0),
+    }))
+    .filter((g) => g.clubs.length > 0);
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -79,21 +96,50 @@ export default function CourtsScreen() {
           </View>
         </View>
 
-        <Text style={styles.clubName}>{CLUB_NAME}</Text>
-        <Text style={styles.clubSub}>{loading ? 'LOADING…' : `${courts.length} COURTS`}</Text>
+        <Text style={styles.clubSub}>
+          {loading ? 'LOADING…' : `${approved.length} COURTS · ${grouped.length} COUNTRIES`}
+        </Text>
 
-        <Link href="/leaderboard" asChild>
-          <Pressable style={styles.hofLink}>
-            <Text style={styles.hofLinkText}>🏆  Hall of Fame</Text>
+        <View style={styles.actionRow}>
+          <Pressable style={styles.actionBtn} onPress={() => router.push('/leaderboard')}>
+            <Text style={styles.actionBtnText}>🏆  Hall of Fame</Text>
           </Pressable>
-        </Link>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => router.push(playerName ? '/add-court' : '/login')}
+          >
+            <Text style={styles.actionBtnText}>＋  Add a court</Text>
+          </Pressable>
+        </View>
+
+        {isOwner ? (
+          <Pressable style={styles.approvalsBtn} onPress={() => router.push('/approvals')}>
+            <Text style={styles.approvalsBtnText}>
+              🛡  Pending approvals{pendingCount ? ` (${pendingCount})` : ''}
+            </Text>
+          </Pressable>
+        ) : null}
 
         {error ? <Text style={styles.error}>Couldn't load courts: {error}</Text> : null}
 
         {loading ? (
           <ActivityIndicator color={GOLD} style={styles.loader} />
+        ) : grouped.length === 0 ? (
+          <Text style={styles.emptyState}>No courts yet — be the first to add one.</Text>
         ) : (
-          courts.map((court) => <CourtRow key={court.id} court={court} />)
+          grouped.map(({ country, clubs: clubGroups }) => (
+            <View key={country.id} style={styles.countryBlock}>
+              <Text style={styles.countryHeader}>{country.name}</Text>
+              {clubGroups.map(({ club, courts: clubCourts }) => (
+                <View key={club.id}>
+                  <Text style={styles.clubHeader}>{club.name}</Text>
+                  {clubCourts.map((court) => (
+                    <CourtRow key={court.id} court={court} />
+                  ))}
+                </View>
+              ))}
+            </View>
+          ))
         )}
       </ScrollView>
       <StatusBar style="light" />
@@ -154,32 +200,68 @@ const styles = StyleSheet.create({
     height: 22,
     marginHorizontal: 1,
   },
-  clubName: {
-    fontSize: 22,
-    color: CREAM,
-    fontFamily: serif,
-    textAlign: 'center',
-  },
   clubSub: {
     fontSize: 12,
     color: MUTED,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
     letterSpacing: 2,
   },
-  hofLink: {
-    alignSelf: 'center',
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  actionBtn: {
+    flex: 1,
     borderWidth: 1,
     borderColor: GOLD,
     borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-    marginBottom: 22,
+    paddingVertical: 9,
+    alignItems: 'center',
   },
-  hofLinkText: {
+  actionBtnText: {
     color: GOLD,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  approvalsBtn: {
+    backgroundColor: 'rgba(201,162,75,0.14)',
+    borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  approvalsBtnText: {
+    color: GOLD,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  emptyState: {
+    color: MUTED,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 30,
+  },
+  countryBlock: {
+    marginBottom: 8,
+  },
+  countryHeader: {
+    fontSize: 20,
+    color: GOLD,
+    fontFamily: serif,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  clubHeader: {
+    fontSize: 13,
+    color: MUTED,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginTop: 8,
+    marginBottom: 10,
   },
   loader: {
     marginTop: 40,

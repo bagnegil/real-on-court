@@ -1,8 +1,17 @@
+export type CourtStatus = 'pending' | 'approved' | 'rejected';
+
 export type Court = {
   id: string;
   number: number;
   champions: [string, string] | null;
+  clubId: string | null;
+  status: CourtStatus;
+  w3w: string | null;
+  createdBy: string | null;
 };
+
+export type Club = { id: string; name: string; countryId: string | null };
+export type Country = { id: string; name: string };
 
 export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'played';
 

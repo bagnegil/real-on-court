@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -405,6 +406,8 @@ export default function CourtDetailScreen() {
     loading,
     error,
     getCourt,
+    getClub,
+    getCountry,
     challengesForCourt,
     matchesForCourt,
     proposeChallenge,
@@ -475,6 +478,11 @@ export default function CourtDetailScreen() {
   const reignStart = court.champions ? currentReignStart(courtMatches) : null;
   const heldDays = reignStart === null ? null : Math.round((Date.now() - reignStart) / DAY_MS);
 
+  const club = getClub(court.clubId);
+  const country = getCountry(club?.countryId ?? null);
+  // Players may type the address with or without the "///" prefix.
+  const w3wWords = court.w3w ? court.w3w.replace(/^\/+/, '').trim() : null;
+
   const openCategories = new Set(
     courtChallenges
       .filter((c) => c.status !== 'accepted' && c.status !== 'played')
@@ -487,6 +495,21 @@ export default function CourtDetailScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ title: `Court ${court.number}` }} />
       <ScrollView contentContainerStyle={styles.scroll}>
+        {club ? (
+          <Text style={styles.locationLine}>
+            {club.name}
+            {country ? ` · ${country.name}` : ''}
+          </Text>
+        ) : null}
+        {w3wWords ? (
+          <Text
+            style={styles.w3wLine}
+            onPress={() => Linking.openURL(`https://what3words.com/${w3wWords}`)}
+          >
+            📍 ///{w3wWords}  ↗
+          </Text>
+        ) : null}
+
         <View style={styles.statusBox}>
           {court.champions ? (
             <View style={styles.center}>
@@ -725,6 +748,17 @@ const styles = StyleSheet.create({
   },
   center: {
     alignItems: 'center',
+  },
+  locationLine: {
+    color: CREAM,
+    fontSize: 14,
+    fontFamily: serif,
+    marginBottom: 2,
+  },
+  w3wLine: {
+    color: GOLD,
+    fontSize: 13,
+    marginBottom: 12,
   },
   statusBox: {
     backgroundColor: CARD,

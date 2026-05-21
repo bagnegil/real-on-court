@@ -30,8 +30,14 @@ type Store = {
     challengeId: string,
     defendersWon: boolean,
     defenders?: [string, string],
+    score?: string | null,
   ) => Promise<Result & { note?: string }>;
-  claimVacant: (courtId: string, winners: [string, string], losers?: [string, string]) => Promise<Result>;
+  claimVacant: (
+    courtId: string,
+    winners: [string, string],
+    losers?: [string, string],
+    score?: string | null,
+  ) => Promise<Result>;
   vacateCourt: (courtId: string) => Promise<Result>;
 };
 
@@ -56,6 +62,7 @@ type MatchRow = {
   loser1: string | null;
   loser2: string | null;
   note: string;
+  score: string | null;
   created_at: string;
 };
 
@@ -109,6 +116,7 @@ function toMatch(r: MatchRow): Match {
     winners: r.winner1 && r.winner2 ? [r.winner1, r.winner2] : null,
     losers: r.loser1 && r.loser2 ? [r.loser1, r.loser2] : null,
     note: r.note,
+    score: r.score,
     createdAt: r.created_at,
   };
 }
@@ -220,6 +228,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     challengeId: string,
     defendersWon: boolean,
     defenders?: [string, string],
+    score?: string | null,
   ) {
     const challenge = challenges.find((c) => c.id === challengeId);
     if (!challenge) return { error: 'Challenge no longer available.' };
@@ -257,6 +266,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loser1: losers[0],
           loser2: losers[1],
           note,
+          score: score ?? null,
         })
         .select()
         .single(),
@@ -272,7 +282,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return { note };
   }
 
-  async function claimVacant(courtId: string, winners: [string, string], losers?: [string, string]) {
+  async function claimVacant(
+    courtId: string,
+    winners: [string, string],
+    losers?: [string, string],
+    score?: string | null,
+  ) {
     const [courtRes, maRes] = await Promise.all([
       supabase
         .from('courts')
@@ -289,6 +304,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loser1: losers?.[0] ?? null,
           loser2: losers?.[1] ?? null,
           note: losers ? 'Won the vacant court' : 'Claimed the vacant court',
+          score: score ?? null,
         })
         .select()
         .single(),

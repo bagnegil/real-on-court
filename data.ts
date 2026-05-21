@@ -21,6 +21,7 @@ export type Match = {
   winners: [string, string] | null;
   losers: [string, string] | null;
   note: string;
+  score: string | null;
   createdAt: string;
 };
 

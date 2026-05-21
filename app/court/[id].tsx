@@ -38,10 +38,12 @@ function Pair({ p }: { p: [string, string] }) {
 }
 
 function MatchLine({ m }: { m: Match }) {
+  const score = m.score ? <Text style={styles.historyScore}> · {m.score}</Text> : null;
   if (m.winners && m.losers) {
     return (
       <Text style={styles.historyLine}>
         <Pair p={m.winners} /> def. <Pair p={m.losers} />
+        {score}
       </Text>
     );
   }
@@ -49,6 +51,7 @@ function MatchLine({ m }: { m: Match }) {
     return (
       <Text style={styles.historyLine}>
         <Pair p={m.winners} />
+        {score}
       </Text>
     );
   }
@@ -64,6 +67,78 @@ function MatchLine({ m }: { m: Match }) {
 
 const DECISION_LABEL = { accept: 'Accept', decline: 'Decline', propose: 'Propose' } as const;
 
+type SetScores = [string, string][];
+const EMPTY_SETS: SetScores = [
+  ['', ''],
+  ['', ''],
+  ['', ''],
+];
+
+// Build a winner-first score string ("6-3, 6-4") from the filled sets.
+function buildScore(sets: SetScores, winnerIsColA: boolean): string | null {
+  const parts: string[] = [];
+  for (const [a, b] of sets) {
+    const x = a.trim();
+    const y = b.trim();
+    if (!x && !y) continue;
+    parts.push(winnerIsColA ? `${x || '0'}-${y || '0'}` : `${y || '0'}-${x || '0'}`);
+  }
+  return parts.length ? parts.join(', ') : null;
+}
+
+function ScoreEntry({
+  labelA,
+  labelB,
+  sets,
+  onChange,
+}: {
+  labelA: string;
+  labelB: string;
+  sets: SetScores;
+  onChange: (s: SetScores) => void;
+}) {
+  const setGame = (i: number, col: 0 | 1, val: string) => {
+    const cleaned = val.replace(/[^0-9]/g, '');
+    onChange(
+      sets.map((s, idx) =>
+        idx === i ? ((col === 0 ? [cleaned, s[1]] : [s[0], cleaned]) as [string, string]) : s,
+      ),
+    );
+  };
+  return (
+    <View style={styles.scoreBox}>
+      <Text style={styles.scoreHint}>Score (optional — best of 3)</Text>
+      <View style={styles.scoreLabels}>
+        <Text style={styles.scoreColLabel}>{labelA}</Text>
+        <Text style={styles.scoreColLabel}>{labelB}</Text>
+      </View>
+      {sets.map((s, i) => (
+        <View key={i} style={styles.scoreRow}>
+          <TextInput
+            style={styles.scoreInput}
+            keyboardType="number-pad"
+            maxLength={2}
+            value={s[0]}
+            onChangeText={(v) => setGame(i, 0, v)}
+            placeholder="–"
+            placeholderTextColor={MUTED}
+          />
+          <Text style={styles.scoreSetLabel}>Set {i + 1}</Text>
+          <TextInput
+            style={styles.scoreInput}
+            keyboardType="number-pad"
+            maxLength={2}
+            value={s[1]}
+            onChangeText={(v) => setGame(i, 1, v)}
+            placeholder="–"
+            placeholderTextColor={MUTED}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // Result recorder for an accepted challenge, including the pair-breaking
 // consent flow: the champion who can't play may accept, decline, or propose.
 function AcceptedResult({
@@ -71,9 +146,10 @@ function AcceptedResult({
   onResult,
 }: {
   champions: [string, string];
-  onResult: (defendersWon: boolean, defenders: [string, string]) => void;
+  onResult: (defendersWon: boolean, defenders: [string, string], score: string | null) => void;
 }) {
   const [broken, setBroken] = useState(false);
+  const [sets, setSets] = useState<SetScores>(EMPTY_SETS);
   const [unavailable, setUnavailable] = useState<0 | 1 | null>(null);
   const [decision, setDecision] = useState<'accept' | 'decline' | 'propose' | null>(null);
   const [subName, setSubName] = useState('');
@@ -221,18 +297,20 @@ function AcceptedResult({
         </View>
       ) : null}
 
+      <ScoreEntry labelA="Defenders" labelB="Challengers" sets={sets} onChange={setSets} />
+
       <Text style={styles.resultLabel}>Match played — who won?</Text>
       <View style={styles.resultBtns}>
         <Pressable
           style={[styles.resultBtn, styles.resultGold, !ready && styles.resultDisabled]}
-          onPress={() => ready && onResult(true, defenders)}
+          onPress={() => ready && onResult(true, defenders, buildScore(sets, true))}
           disabled={!ready}
         >
           <Text style={styles.resultGoldText}>Defenders won</Text>
         </Pressable>
         <Pressable
           style={[styles.resultBtn, styles.resultOutline]}
-          onPress={() => onResult(false, defenders)}
+          onPress={() => onResult(false, defenders, buildScore(sets, false))}
         >
           <Text style={styles.resultOutlineText}>Challengers won</Text>
         </Pressable>
@@ -247,12 +325,13 @@ function VacantClaim({
   onClaim,
 }: {
   me: string;
-  onClaim: (winners: [string, string], losers: [string, string]) => void;
+  onClaim: (winners: [string, string], losers: [string, string], score: string | null) => void;
 }) {
   const [a1, setA1] = useState(me);
   const [a2, setA2] = useState('');
   const [b1, setB1] = useState('');
   const [b2, setB2] = useState('');
+  const [sets, setSets] = useState<SetScores>(EMPTY_SETS);
 
   const pairA: [string, string] = [a1.trim(), a2.trim()];
   const pairB: [string, string] = [b1.trim(), b2.trim()];
@@ -297,19 +376,21 @@ function VacantClaim({
         onChangeText={setB2}
       />
 
+      <ScoreEntry labelA="Pair A" labelB="Pair B" sets={sets} onChange={setSets} />
+
       <Text style={styles.resultLabel}>Who won?</Text>
       <View style={styles.resultBtns}>
         <Pressable
           style={[styles.resultBtn, styles.resultGold, !ready && styles.resultDisabled]}
           disabled={!ready}
-          onPress={() => ready && onClaim(pairA, pairB)}
+          onPress={() => ready && onClaim(pairA, pairB, buildScore(sets, true))}
         >
           <Text style={styles.resultGoldText}>Pair A won</Text>
         </Pressable>
         <Pressable
           style={[styles.resultBtn, styles.resultOutline, !ready && styles.resultDisabled]}
           disabled={!ready}
-          onPress={() => ready && onClaim(pairB, pairA)}
+          onPress={() => ready && onClaim(pairB, pairA, buildScore(sets, false))}
         >
           <Text style={styles.resultOutlineText}>Pair B won</Text>
         </Pressable>
@@ -377,10 +458,15 @@ export default function CourtDetailScreen() {
     setPartner('');
   }
 
-  async function onResult(challengeId: string, defendersWon: boolean, defenders: [string, string]) {
-    const res = await recordChallengeResult(challengeId, defendersWon, defenders);
+  async function onResult(
+    challengeId: string,
+    defendersWon: boolean,
+    defenders: [string, string],
+    score: string | null,
+  ) {
+    const res = await recordChallengeResult(challengeId, defendersWon, defenders, score);
     if (res.error) return;
-    flash(`✓ ${res.note ?? 'Result recorded'}`);
+    flash(`✓ ${res.note ?? 'Result recorded'}${score ? ` (${score})` : ''}`);
   }
 
   const courtChallenges = challengesForCourt(court.id);
@@ -594,7 +680,7 @@ export default function CourtDetailScreen() {
                   {c.status === 'accepted' && court.champions ? (
                     <AcceptedResult
                       champions={court.champions}
-                      onResult={(won, defenders) => onResult(c.id, won, defenders)}
+                      onResult={(won, defenders, score) => onResult(c.id, won, defenders, score)}
                     />
                   ) : null}
                 </View>
@@ -604,10 +690,10 @@ export default function CourtDetailScreen() {
         ) : (
           <VacantClaim
             me={playerName}
-            onClaim={async (winners, losers) => {
-              const res = await claimVacant(court.id, winners, losers);
+            onClaim={async (winners, losers, score) => {
+              const res = await claimVacant(court.id, winners, losers, score);
               if (res.error) return;
-              flash(`✓ ${winners[0]} & ${winners[1]} claimed the crown!`);
+              flash(`✓ ${winners[0]} & ${winners[1]} claimed the crown!${score ? ` (${score})` : ''}`);
             }}
           />
         )}
@@ -1018,6 +1104,52 @@ const styles = StyleSheet.create({
   },
   link: {
     textDecorationLine: 'underline',
+  },
+  historyScore: {
+    color: GOLD,
+    fontWeight: '600',
+  },
+  scoreBox: {
+    marginTop: 12,
+  },
+  scoreHint: {
+    color: MUTED,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  scoreLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  scoreColLabel: {
+    width: 56,
+    textAlign: 'center',
+    color: GOLD,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scoreInput: {
+    width: 56,
+    borderWidth: 1,
+    borderColor: MUTED,
+    borderRadius: 8,
+    paddingVertical: 8,
+    textAlign: 'center',
+    color: CREAM,
+    fontSize: 15,
+    backgroundColor: CARD,
+  },
+  scoreSetLabel: {
+    flex: 1,
+    textAlign: 'center',
+    color: MUTED,
+    fontSize: 13,
   },
   historyNote: {
     color: MUTED,

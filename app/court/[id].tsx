@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
@@ -22,6 +22,7 @@ import {
   challengeCategory,
 } from '../../data';
 import { useStore } from '../../store';
+import { useAuth } from '../../auth';
 import { crownImg } from '../../images';
 
 function matchLine(m: Match) {
@@ -218,12 +219,14 @@ function AcceptedResult({
 
 // Vacant court: two aspirant pairs play, the winners take the crown.
 function VacantClaim({
+  me,
   onClaim,
 }: {
+  me: string;
   onClaim: (winners: [string, string], losers: [string, string]) => void;
 }) {
-  const [a1, setA1] = useState('You');
-  const [a2, setA2] = useState('Your partner');
+  const [a1, setA1] = useState(me);
+  const [a2, setA2] = useState('');
   const [b1, setB1] = useState('');
   const [b2, setB2] = useState('');
 
@@ -305,9 +308,12 @@ export default function CourtDetailScreen() {
     vacateCourt,
   } = useStore();
   const court = getCourt(id);
+  const router = useRouter();
+  const { playerName } = useAuth();
 
   const [selDay, setSelDay] = useState<string | null>(null);
   const [selTime, setSelTime] = useState<string>('19:00');
+  const [partner, setPartner] = useState('');
   const [confirm, setConfirm] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -338,10 +344,11 @@ export default function CourtDetailScreen() {
   }
 
   function onPropose() {
-    if (!selDay) return;
-    proposeChallenge(court!.id, selDay, selTime);
+    if (!selDay || !playerName || !partner.trim()) return;
+    proposeChallenge(court!.id, selDay, selTime, [playerName, partner.trim()]);
     flash(`✓ Challenge booked: ${selDay} ${selTime} (${BOOKING_MINUTES} min)`);
     setSelDay(null);
+    setPartner('');
   }
 
   function onResult(challengeId: string, defendersWon: boolean, defenders: [string, string]) {
@@ -390,13 +397,35 @@ export default function CourtDetailScreen() {
 
         {confirm ? <Text style={styles.confirm}>{confirm}</Text> : null}
 
-        {court.champions ? (
+        {!playerName ? (
+          <View style={styles.signInBox}>
+            <Text style={styles.signInText}>
+              Sign in to challenge for the crown and record results.
+            </Text>
+            <Pressable style={styles.button} onPress={() => router.push('/login')}>
+              <Text style={styles.buttonText}>Sign in</Text>
+            </Pressable>
+          </View>
+        ) : court.champions ? (
           <>
             <Text style={styles.sectionTitle}>Propose a challenge</Text>
             <Text style={styles.help}>
               Pick a day and a kick-off time — the booking is assumed to be at least{' '}
               {BOOKING_MINUTES} minutes. To force a forfeit, the champions must ignore a morning, an
               evening AND a weekend challenge.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Your partner</Text>
+            <TextInput
+              style={[styles.input, styles.partnerInput]}
+              placeholder="Partner's name"
+              placeholderTextColor={MUTED}
+              autoCapitalize="words"
+              value={partner}
+              onChangeText={setPartner}
+            />
+            <Text style={styles.challengerNote}>
+              Challenging as {playerName} & {partner.trim() || '…'}
             </Text>
 
             <Text style={styles.fieldLabel}>Day</Text>
@@ -440,12 +469,19 @@ export default function CourtDetailScreen() {
             </Text>
 
             <Pressable
-              style={[styles.button, !selDay && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                (!selDay || !partner.trim()) && styles.buttonDisabled,
+              ]}
               onPress={onPropose}
-              disabled={!selDay}
+              disabled={!selDay || !partner.trim()}
             >
               <Text style={styles.buttonText}>
-                {selDay ? `Propose · ${selDay} ${selTime}` : 'Pick a day first'}
+                {!partner.trim()
+                  ? 'Add your partner'
+                  : selDay
+                    ? `Propose · ${selDay} ${selTime}`
+                    : 'Pick a day first'}
               </Text>
             </Pressable>
 
@@ -526,6 +562,7 @@ export default function CourtDetailScreen() {
           </>
         ) : (
           <VacantClaim
+            me={playerName}
             onClaim={(winners, losers) => {
               claimVacant(court.id, winners, losers);
               flash(`✓ ${winners[0]} & ${winners[1]} claimed the crown!`);
@@ -938,5 +975,29 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 40,
+  },
+  signInBox: {
+    backgroundColor: CARD,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(201,162,75,0.35)',
+    padding: 18,
+    marginBottom: 16,
+  },
+  signInText: {
+    color: CREAM,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  partnerInput: {
+    backgroundColor: CARD,
+    marginBottom: 8,
+  },
+  challengerNote: {
+    color: MUTED,
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginBottom: 6,
   },
 });

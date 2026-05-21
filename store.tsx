@@ -12,7 +12,12 @@ type Store = {
   getCourt: (id: string) => Court | undefined;
   challengesForCourt: (courtId: string) => Challenge[];
   matchesForCourt: (courtId: string) => Match[];
-  proposeChallenge: (courtId: string, day: string, time: string) => Promise<void>;
+  proposeChallenge: (
+    courtId: string,
+    day: string,
+    time: string,
+    challenger: [string, string],
+  ) => Promise<void>;
   setChallengeStatus: (id: string, status: ChallengeStatus) => Promise<void>;
   recordChallengeResult: (
     challengeId: string,
@@ -98,13 +103,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return matches.filter((m) => m.courtId === courtId);
   }
 
-  async function proposeChallenge(courtId: string, day: string, time: string) {
+  async function proposeChallenge(
+    courtId: string,
+    day: string,
+    time: string,
+    challenger: [string, string],
+  ) {
     const { data, error: err } = await supabase
       .from('challenges')
       .insert({
         court_id: courtId,
-        challenger1: 'You',
-        challenger2: 'Your partner',
+        challenger1: challenger[0],
+        challenger2: challenger[1],
         day,
         time,
         status: 'pending',

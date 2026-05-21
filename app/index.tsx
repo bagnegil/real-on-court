@@ -1,10 +1,36 @@
 import { StatusBar } from 'expo-status-bar';
-import { Link, Stack } from 'expo-router';
+import { Link, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
 import { CLUB_NAME, Court } from '../data';
 import { useStore } from '../store';
+import { useAuth } from '../auth';
 import { ballImg, crownImg } from '../images';
+
+function AuthBar() {
+  const router = useRouter();
+  const { playerName, signOut } = useAuth();
+  return (
+    <View style={styles.authBar}>
+      {playerName ? (
+        <>
+          <Pressable onPress={() => router.push('/account')} hitSlop={8} style={styles.authNameWrap}>
+            <Text style={styles.authName} numberOfLines={1}>
+              {playerName} ›
+            </Text>
+          </Pressable>
+          <Pressable onPress={signOut} hitSlop={8}>
+            <Text style={styles.authAction}>Sign out</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Pressable onPress={() => router.push('/login')} hitSlop={8}>
+          <Text style={styles.authAction}>Sign in</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 function CourtRow({ court }: { court: Court }) {
   return (
@@ -43,6 +69,7 @@ export default function CourtsScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.scroll}>
+        <AuthBar />
         <View style={styles.header}>
           <Image source={crownImg} style={styles.headerCrown} resizeMode="contain" />
           <View style={styles.titleRow}>
@@ -77,6 +104,25 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     paddingBottom: 40,
+  },
+  authBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  authNameWrap: {
+    flexShrink: 1,
+  },
+  authName: {
+    color: CREAM,
+    fontSize: 13,
+  },
+  authAction: {
+    color: GOLD,
+    fontSize: 13,
+    fontWeight: '600',
   },
   header: {
     alignItems: 'center',

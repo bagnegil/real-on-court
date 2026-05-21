@@ -2,7 +2,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Link, Stack } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
-import { CLUB_NAME, COURTS, Court } from '../data';
+import { CLUB_NAME, Court } from '../data';
+import { useStore } from '../store';
 import { ballImg, crownImg } from '../images';
 
 function CourtRow({ court }: { court: Court }) {
@@ -37,6 +38,7 @@ function CourtRow({ court }: { court: Court }) {
 }
 
 export default function CourtsScreen() {
+  const { courts } = useStore();
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -51,9 +53,9 @@ export default function CourtsScreen() {
         </View>
 
         <Text style={styles.clubName}>{CLUB_NAME}</Text>
-        <Text style={styles.clubSub}>{COURTS.length} COURTS</Text>
+        <Text style={styles.clubSub}>{courts.length} COURTS</Text>
 
-        {COURTS.map((court) => (
+        {courts.map((court) => (
           <CourtRow key={court.id} court={court} />
         ))}
       </ScrollView>

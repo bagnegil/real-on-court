@@ -10,15 +10,25 @@ import {
   View,
 } from 'react-native';
 import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
+import { PREFERRED_SIDES } from '../data';
 import { useAuth } from '../auth';
+import { useStore } from '../store';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { session, playerName, updateName, signOut } = useAuth();
+  const { getPlayer, updatePlayer } = useStore();
 
+  const me = getPlayer(playerName ?? '');
   // If the current name is just the email (no real name set), start blank.
-  const initial = playerName && playerName !== session?.user.email ? playerName : '';
-  const [name, setName] = useState(initial);
+  const [name, setName] = useState(playerName && playerName !== session?.user.email ? playerName : '');
+  const [hometown, setHometown] = useState(me?.hometown ?? '');
+  const [country, setCountry] = useState(me?.country ?? '');
+  const [birthYear, setBirthYear] = useState(me?.birthYear ? String(me.birthYear) : '');
+  const [level, setLevel] = useState(me?.playtomicLevel != null ? String(me.playtomicLevel) : '');
+  const [url, setUrl] = useState(me?.playtomicUrl ?? '');
+  const [side, setSide] = useState<string | null>(me?.preferredSide ?? null);
+  const [bio, setBio] = useState(me?.bio ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,13 +38,28 @@ export default function AccountScreen() {
     if (!ready) return;
     setBusy(true);
     setError(null);
-    const res = await updateName(name);
+    if (name.trim() !== playerName) {
+      const r = await updateName(name);
+      if (r.error) {
+        setBusy(false);
+        setError(r.error);
+        return;
+      }
+    }
+    const r = await updatePlayer(name.trim(), {
+      hometown: hometown.trim() || null,
+      country: country.trim() || null,
+      birthYear: birthYear.trim() ? Number(birthYear) : null,
+      playtomicLevel: level.trim() ? Number(level) : null,
+      playtomicUrl: url.trim() || null,
+      preferredSide: side,
+      bio: bio.trim() || null,
+    });
     setBusy(false);
-    if (res.error) {
-      setError(res.error);
+    if (r.error) {
+      setError(r.error);
       return;
     }
-    // Returning to the courts list, where the header now shows the new name, is the confirmation.
     if (router.canGoBack()) router.back();
   }
 
@@ -63,12 +88,58 @@ export default function AccountScreen() {
           value={name}
           onChangeText={setName}
         />
-        <Text style={styles.hint}>This is the name shown on courts and challenges.</Text>
+
+        <View style={styles.half}>
+          <View style={styles.col}>
+            <Text style={styles.label}>Hometown</Text>
+            <TextInput style={styles.input} placeholder="City" placeholderTextColor={MUTED} value={hometown} onChangeText={setHometown} />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.label}>Country</Text>
+            <TextInput style={styles.input} placeholder="Country" placeholderTextColor={MUTED} value={country} onChangeText={setCountry} />
+          </View>
+        </View>
+
+        <View style={styles.half}>
+          <View style={styles.col}>
+            <Text style={styles.label}>Birth year</Text>
+            <TextInput style={styles.input} placeholder="1995" placeholderTextColor={MUTED} keyboardType="number-pad" value={birthYear} onChangeText={setBirthYear} />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.label}>Playtomic level</Text>
+            <TextInput style={styles.input} placeholder="3.5" placeholderTextColor={MUTED} keyboardType="decimal-pad" value={level} onChangeText={setLevel} />
+          </View>
+        </View>
+
+        <Text style={styles.label}>Playtomic profile link</Text>
+        <TextInput style={styles.input} placeholder="https://playtomic.io/..." placeholderTextColor={MUTED} autoCapitalize="none" keyboardType="url" value={url} onChangeText={setUrl} />
+
+        <Text style={styles.label}>Preferred side</Text>
+        <View style={styles.sideRow}>
+          {PREFERRED_SIDES.map((s) => {
+            const on = side === s;
+            return (
+              <Pressable key={s} style={[styles.sideChip, on && styles.sideChipOn]} onPress={() => setSide(on ? null : s)}>
+                <Text style={[styles.sideChipText, on && styles.sideChipTextOn]}>{s}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Bio</Text>
+        <TextInput
+          style={[styles.input, styles.bio]}
+          placeholder="A line about your game"
+          placeholderTextColor={MUTED}
+          multiline
+          value={bio}
+          onChangeText={setBio}
+        />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable style={[styles.button, !ready && styles.buttonDisabled]} onPress={save} disabled={!ready}>
-          {busy ? <ActivityIndicator color={NAVY} /> : <Text style={styles.buttonText}>Save name</Text>}
+          {busy ? <ActivityIndicator color={NAVY} /> : <Text style={styles.buttonText}>Save profile</Text>}
         </Pressable>
 
         <Pressable
@@ -116,10 +187,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: CARD,
   },
-  hint: {
-    fontSize: 13,
-    color: MUTED,
-    marginTop: 8,
+  half: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  col: {
+    flex: 1,
+  },
+  bio: {
+    height: 70,
+    textAlignVertical: 'top',
+  },
+  sideRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sideChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  sideChipOn: {
+    backgroundColor: GOLD,
+  },
+  sideChipText: {
+    color: GOLD,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sideChipTextOn: {
+    color: NAVY,
   },
   error: {
     color: DANGER,

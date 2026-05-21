@@ -1,17 +1,34 @@
 import { useMemo } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../../theme';
 import { useStore } from '../../store';
 import { humanizeDays, playerReigns } from '../../reigns';
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+function InfoRow({ label, value, onPress }: { label: string; value: string; onPress?: () => void }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, onPress && styles.infoLink]} onPress={onPress}>
+        {value}
+        {onPress ? '  ↗' : ''}
+      </Text>
+    </View>
+  );
+}
 
 export default function PlayerScreen() {
   const { name: raw } = useLocalSearchParams<{ name: string }>();
   const name = decodeURIComponent(raw ?? '');
   const router = useRouter();
-  const { courts, matches, loading } = useStore();
+  const { courts, matches, loading, getPlayer } = useStore();
 
   const courtNumber = (courtId: string) => courts.find((c) => c.id === courtId)?.number ?? '?';
+  const info = getPlayer(name);
+  const age = info?.birthYear ? CURRENT_YEAR - info.birthYear : null;
+  const from = [info?.hometown, info?.country].filter(Boolean).join(', ');
 
   const stats = useMemo(() => {
     const reigns = playerReigns(matches, name);
@@ -32,6 +49,24 @@ export default function PlayerScreen() {
           <ActivityIndicator color={GOLD} style={styles.loader} />
         ) : (
           <>
+            {info ? (
+              <View style={styles.aboutCard}>
+                {from ? <InfoRow label="From" value={from} /> : null}
+                {age !== null ? <InfoRow label="Age" value={String(age)} /> : null}
+                {info.preferredSide ? <InfoRow label="Side" value={info.preferredSide} /> : null}
+                {info.playtomicLevel !== null ? (
+                  <InfoRow
+                    label="Playtomic"
+                    value={`Level ${info.playtomicLevel}`}
+                    onPress={
+                      info.playtomicUrl ? () => Linking.openURL(info.playtomicUrl!) : undefined
+                    }
+                  />
+                ) : null}
+                {info.bio ? <Text style={styles.bio}>“{info.bio}”</Text> : null}
+              </View>
+            ) : null}
+
             <View style={styles.statRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statValue}>{humanizeDays(stats.totalDays)}</Text>
@@ -102,6 +137,40 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 40,
+  },
+  aboutCard: {
+    backgroundColor: CARD,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(201,162,75,0.35)',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  infoLabel: {
+    color: MUTED,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  infoValue: {
+    color: CREAM,
+    fontSize: 15,
+  },
+  infoLink: {
+    color: GOLD,
+    textDecorationLine: 'underline',
+  },
+  bio: {
+    color: CREAM,
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   statRow: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Challenge, ChallengeStatus, Court, Match } from './data';
+import { Challenge, ChallengeStatus, Court, Match, Player } from './data';
 import { supabase } from './supabase';
 
 // Returned by every mutation so callers can react to failure instead of
@@ -10,12 +10,15 @@ type Store = {
   courts: Court[];
   challenges: Challenge[];
   matches: Match[];
+  players: Player[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   getCourt: (id: string) => Court | undefined;
+  getPlayer: (name: string) => Player | undefined;
   challengesForCourt: (courtId: string) => Challenge[];
   matchesForCourt: (courtId: string) => Match[];
+  updatePlayer: (name: string, fields: Partial<Omit<Player, 'name'>>) => Promise<Result>;
   proposeChallenge: (
     courtId: string,
     day: string,
@@ -56,6 +59,30 @@ type MatchRow = {
   created_at: string;
 };
 
+type PlayerRow = {
+  name: string;
+  hometown: string | null;
+  country: string | null;
+  birth_year: number | null;
+  playtomic_level: number | null;
+  playtomic_url: string | null;
+  preferred_side: string | null;
+  bio: string | null;
+};
+
+function toPlayer(r: PlayerRow): Player {
+  return {
+    name: r.name,
+    hometown: r.hometown,
+    country: r.country,
+    birthYear: r.birth_year,
+    playtomicLevel: r.playtomic_level,
+    playtomicUrl: r.playtomic_url,
+    preferredSide: r.preferred_side,
+    bio: r.bio,
+  };
+}
+
 function toCourt(r: CourtRow): Court {
   return {
     id: r.id,
@@ -90,17 +117,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [courts, setCourts] = useState<Court[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setError(null);
-    const [c, ch, ma] = await Promise.all([
+    const [c, ch, ma, pl] = await Promise.all([
       supabase.from('courts').select('*').order('number'),
       supabase.from('challenges').select('*').order('created_at'),
       supabase.from('matches').select('*').order('created_at', { ascending: false }),
+      supabase.from('players').select('*'),
     ]);
-    const failed = c.error || ch.error || ma.error;
+    const failed = c.error || ch.error || ma.error || pl.error;
     if (failed) {
       setError(failed.message);
       setLoading(false);
@@ -109,6 +138,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCourts((c.data ?? []).map(toCourt));
     setChallenges((ch.data ?? []).map(toChallenge));
     setMatches((ma.data ?? []).map(toMatch));
+    setPlayers((pl.data ?? []).map(toPlayer));
     setLoading(false);
   }
 
@@ -131,6 +161,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   function getCourt(id: string) {
     return courts.find((c) => c.id === id);
+  }
+
+  function getPlayer(name: string) {
+    return players.find((p) => p.name === name);
   }
 
   function challengesForCourt(courtId: string) {
@@ -302,16 +336,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {};
   }
 
+  async function updatePlayer(name: string, fields: Partial<Omit<Player, 'name'>>) {
+    const row = {
+      name,
+      hometown: fields.hometown ?? null,
+      country: fields.country ?? null,
+      birth_year: fields.birthYear ?? null,
+      playtomic_level: fields.playtomicLevel ?? null,
+      playtomic_url: fields.playtomicUrl ?? null,
+      preferred_side: fields.preferredSide ?? null,
+      bio: fields.bio ?? null,
+    };
+    const { data, error: err } = await supabase
+      .from('players')
+      .upsert(row, { onConflict: 'name' })
+      .select()
+      .single();
+    if (err) {
+      setError(err.message);
+      return { error: err.message };
+    }
+    const updated = toPlayer(data);
+    setPlayers((prev) => {
+      const without = prev.filter((p) => p.name !== name);
+      return [...without, updated];
+    });
+    return {};
+  }
+
   return (
     <StoreContext.Provider
       value={{
         courts,
         challenges,
         matches,
+        players,
         loading,
         error,
         refresh,
         getCourt,
+        getPlayer,
         challengesForCourt,
         matchesForCourt,
         proposeChallenge,
@@ -319,6 +383,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         recordChallengeResult,
         claimVacant,
         vacateCourt,
+        updatePlayer,
       }}
     >
       {children}

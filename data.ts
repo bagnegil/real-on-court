@@ -24,6 +24,19 @@ export type Match = {
   createdAt: string;
 };
 
+export type Player = {
+  name: string;
+  hometown: string | null;
+  country: string | null;
+  birthYear: number | null;
+  playtomicLevel: number | null;
+  playtomicUrl: string | null;
+  preferredSide: string | null;
+  bio: string | null;
+};
+
+export const PREFERRED_SIDES = ['Left', 'Right', 'Both'] as const;
+
 export const CLUB_NAME = 'David Lloyd Rugby';
 
 export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

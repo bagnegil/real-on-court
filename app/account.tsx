@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
+import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
 import { useAuth } from '../auth';
 
 export default function AccountScreen() {
@@ -21,7 +21,6 @@ export default function AccountScreen() {
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const ready = !!name.trim() && !busy;
 
@@ -29,14 +28,13 @@ export default function AccountScreen() {
     if (!ready) return;
     setBusy(true);
     setError(null);
-    setSaved(false);
     const res = await updateName(name);
     setBusy(false);
     if (res.error) {
       setError(res.error);
       return;
     }
-    setSaved(true);
+    // Returning to the courts list, where the header now shows the new name, is the confirmation.
     if (router.canGoBack()) router.back();
   }
 
@@ -68,7 +66,6 @@ export default function AccountScreen() {
         <Text style={styles.hint}>This is the name shown on courts and challenges.</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {saved ? <Text style={styles.saved}>Saved.</Text> : null}
 
         <Pressable style={[styles.button, !ready && styles.buttonDisabled]} onPress={save} disabled={!ready}>
           {busy ? <ActivityIndicator color={NAVY} /> : <Text style={styles.buttonText}>Save name</Text>}
@@ -125,12 +122,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   error: {
-    color: '#D98A8A',
-    fontSize: 13,
-    marginTop: 14,
-  },
-  saved: {
-    color: '#7FCB9B',
+    color: DANGER,
     fontSize: 13,
     marginTop: 14,
   },

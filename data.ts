@@ -65,9 +65,3 @@ export function challengeCategory(day: string, time: string): SlotCategory {
   const hour = Number(time.split(':')[0]);
   return hour >= 5 && hour < 17 ? 'morning' : 'evening';
 }
-
-export const INITIAL_COURTS: Court[] = [
-  { id: '1', number: 1, champions: ['Carlos M.', 'Javier P.'] },
-  { id: '2', number: 2, champions: null },
-  { id: '3', number: 3, champions: ['Ana R.', 'Lucia F.'] },
-];

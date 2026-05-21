@@ -2,6 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Challenge, ChallengeStatus, Court, Match } from './data';
 import { supabase } from './supabase';
 
+// Returned by every mutation so callers can react to failure instead of
+// assuming success. recordChallengeResult adds the human-readable outcome note.
+type Result = { error?: string };
+
 type Store = {
   courts: Court[];
   challenges: Challenge[];
@@ -17,22 +21,41 @@ type Store = {
     day: string,
     time: string,
     challenger: [string, string],
-  ) => Promise<void>;
-  setChallengeStatus: (id: string, status: ChallengeStatus) => Promise<void>;
+  ) => Promise<Result>;
+  setChallengeStatus: (id: string, status: ChallengeStatus) => Promise<Result>;
   recordChallengeResult: (
     challengeId: string,
     defendersWon: boolean,
     defenders?: [string, string],
-  ) => Promise<void>;
-  claimVacant: (courtId: string, winners: [string, string], losers?: [string, string]) => Promise<void>;
-  vacateCourt: (courtId: string) => Promise<void>;
+  ) => Promise<Result & { note?: string }>;
+  claimVacant: (courtId: string, winners: [string, string], losers?: [string, string]) => Promise<Result>;
+  vacateCourt: (courtId: string) => Promise<Result>;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
-// --- Mappers: Supabase rows (snake_case, separate columns) -> app types. ---
-// A pair is stored as two text columns; null/null means vacant.
-function toCourt(r: any): Court {
+// Supabase row shapes (snake_case, a pair stored as two text columns; both null = vacant).
+type CourtRow = { id: string; number: number; champion1: string | null; champion2: string | null };
+type ChallengeRow = {
+  id: string;
+  court_id: string;
+  challenger1: string;
+  challenger2: string;
+  day: string;
+  time: string;
+  status: ChallengeStatus;
+};
+type MatchRow = {
+  id: string;
+  court_id: string;
+  winner1: string | null;
+  winner2: string | null;
+  loser1: string | null;
+  loser2: string | null;
+  note: string;
+};
+
+function toCourt(r: CourtRow): Court {
   return {
     id: r.id,
     number: r.number,
@@ -40,7 +63,7 @@ function toCourt(r: any): Court {
   };
 }
 
-function toChallenge(r: any): Challenge {
+function toChallenge(r: ChallengeRow): Challenge {
   return {
     id: r.id,
     courtId: r.court_id,
@@ -51,7 +74,7 @@ function toChallenge(r: any): Challenge {
   };
 }
 
-function toMatch(r: any): Match {
+function toMatch(r: MatchRow): Match {
   return {
     id: r.id,
     courtId: r.court_id,
@@ -123,9 +146,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .single();
     if (err) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setChallenges((prev) => [...prev, toChallenge(data)]);
+    return {};
   }
 
   async function setChallengeStatus(id: string, status: ChallengeStatus) {
@@ -137,9 +161,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .single();
     if (err) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setChallenges((prev) => prev.map((c) => (c.id === id ? toChallenge(data) : c)));
+    return {};
   }
 
   async function recordChallengeResult(
@@ -148,15 +173,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     defenders?: [string, string],
   ) {
     const challenge = challenges.find((c) => c.id === challengeId);
-    if (!challenge) return;
+    if (!challenge) return { error: 'Challenge no longer available.' };
     const court = courts.find((c) => c.id === challenge.courtId);
-    if (!court || !court.champions) return;
+    if (!court || !court.champions) return { error: 'This court has no champions to defend.' };
 
     const original = court.champions;
     const challengers = challenge.challenger;
     // The pair that actually defended (may be one original champion + a substitute).
     const defendingPair = defenders ?? original;
-    const newChampions = defendersWon ? defendingPair : challengers;
     const winners = defendersWon ? defendingPair : challengers;
     const losers = defendersWon ? challengers : defendingPair;
     const subbed =
@@ -170,7 +194,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const [courtRes, chRes, maRes] = await Promise.all([
       supabase
         .from('courts')
-        .update({ champion1: newChampions[0], champion2: newChampions[1] })
+        .update({ champion1: winners[0], champion2: winners[1] })
         .eq('id', court.id)
         .select()
         .single(),
@@ -191,11 +215,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const err = courtRes.error || chRes.error || maRes.error;
     if (err) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setCourts((prev) => prev.map((c) => (c.id === court.id ? toCourt(courtRes.data) : c)));
     setChallenges((prev) => prev.map((c) => (c.id === challengeId ? toChallenge(chRes.data) : c)));
     setMatches((prev) => [toMatch(maRes.data), ...prev]);
+    return { note };
   }
 
   async function claimVacant(courtId: string, winners: [string, string], losers?: [string, string]) {
@@ -222,10 +247,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const err = courtRes.error || maRes.error;
     if (err) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setCourts((prev) => prev.map((c) => (c.id === courtId ? toCourt(courtRes.data) : c)));
     setMatches((prev) => [toMatch(maRes.data), ...prev]);
+    return {};
   }
 
   async function vacateCourt(courtId: string) {
@@ -254,10 +280,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const err = courtRes.error || maRes.error;
     if (err) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setCourts((prev) => prev.map((c) => (c.id === courtId ? toCourt(courtRes.data) : c)));
     setMatches((prev) => [toMatch(maRes.data), ...prev]);
+    return {};
   }
 
   return (

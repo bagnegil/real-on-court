@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../../theme';
+import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif, SUCCESS } from '../../theme';
 import {
   BOOKING_MINUTES,
   CATEGORY_LABEL,
@@ -298,6 +298,7 @@ export default function CourtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     loading,
+    error,
     getCourt,
     challengesForCourt,
     matchesForCourt,
@@ -343,24 +344,19 @@ export default function CourtDetailScreen() {
     timer.current = setTimeout(() => setConfirm(null), 2500);
   }
 
-  function onPropose() {
+  async function onPropose() {
     if (!selDay || !playerName || !partner.trim()) return;
-    proposeChallenge(court!.id, selDay, selTime, [playerName, partner.trim()]);
+    const res = await proposeChallenge(court!.id, selDay, selTime, [playerName, partner.trim()]);
+    if (res.error) return; // failure is surfaced via the store error banner
     flash(`✓ Challenge booked: ${selDay} ${selTime} (${BOOKING_MINUTES} min)`);
     setSelDay(null);
     setPartner('');
   }
 
-  function onResult(challengeId: string, defendersWon: boolean, defenders: [string, string]) {
-    const champs = court!.champions;
-    recordChallengeResult(challengeId, defendersWon, defenders);
-    if (!defendersWon) {
-      flash('✓ New champions crowned!');
-    } else if (champs && defenders[0] === champs[0] && defenders[1] === champs[1]) {
-      flash('✓ Champions defended the crown');
-    } else {
-      flash('✓ Defended with a new lineup');
-    }
+  async function onResult(challengeId: string, defendersWon: boolean, defenders: [string, string]) {
+    const res = await recordChallengeResult(challengeId, defendersWon, defenders);
+    if (res.error) return;
+    flash(`✓ ${res.note ?? 'Result recorded'}`);
   }
 
   const courtChallenges = challengesForCourt(court.id);
@@ -396,6 +392,7 @@ export default function CourtDetailScreen() {
         </View>
 
         {confirm ? <Text style={styles.confirm}>{confirm}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {!playerName ? (
           <View style={styles.signInBox}>
@@ -506,7 +503,13 @@ export default function CourtDetailScreen() {
                   The champions ignored a morning, an evening and a weekend challenge. The court is
                   forfeited.
                 </Text>
-                <Pressable style={styles.button} onPress={() => vacateCourt(court.id)}>
+                <Pressable
+                  style={styles.button}
+                  onPress={async () => {
+                    const res = await vacateCourt(court.id);
+                    if (!res.error) flash('✓ Court vacated — now open to claim');
+                  }}
+                >
                   <Text style={styles.buttonText}>Vacate the court</Text>
                 </Pressable>
               </View>
@@ -563,8 +566,9 @@ export default function CourtDetailScreen() {
         ) : (
           <VacantClaim
             me={playerName}
-            onClaim={(winners, losers) => {
-              claimVacant(court.id, winners, losers);
+            onClaim={async (winners, losers) => {
+              const res = await claimVacant(court.id, winners, losers);
+              if (res.error) return;
               flash(`✓ ${winners[0]} & ${winners[1]} claimed the crown!`);
             }}
           />
@@ -636,7 +640,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   confirm: {
-    color: '#7FCB9B',
+    color: SUCCESS,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  error: {
+    color: DANGER,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,
@@ -748,7 +758,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chipDone: {
-    borderColor: '#7FCB9B',
+    borderColor: SUCCESS,
     backgroundColor: 'rgba(127,203,155,0.15)',
   },
   chipText: {
@@ -757,7 +767,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextDone: {
-    color: '#7FCB9B',
+    color: SUCCESS,
   },
   forfeitBox: {
     backgroundColor: 'rgba(201,162,75,0.12)',
@@ -827,7 +837,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   badgeDeclined: {
-    color: '#D98A8A',
+    color: DANGER,
     fontSize: 13,
     fontWeight: 'bold',
   },
@@ -895,7 +905,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subPreview: {
-    color: '#7FCB9B',
+    color: SUCCESS,
     fontSize: 13,
     marginTop: 8,
   },

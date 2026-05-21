@@ -6,7 +6,6 @@ type AuthResult = { error?: string; needsConfirmation?: boolean };
 
 type Auth = {
   session: Session | null;
-  // The signed-in player's display name (from sign-up), or null when logged out.
   playerName: string | null;
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;

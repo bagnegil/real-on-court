@@ -5,5 +5,7 @@ export const CARD = '#21395A';
 export const GOLD = '#C9A24B';
 export const CREAM = '#E7D9B0';
 export const MUTED = '#A9B9CF';
+export const DANGER = '#D98A8A';
+export const SUCCESS = '#7FCB9B';
 
 export const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, serif' });

@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { Link, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
+import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
 import { CLUB_NAME, Court } from '../data';
 import { useStore } from '../store';
 import { useAuth } from '../auth';
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   error: {
-    color: '#D98A8A',
+    color: DANGER,
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 16,

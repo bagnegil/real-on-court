@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
+import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif, SUCCESS } from '../theme';
 import { useAuth } from '../auth';
 import { crownImg } from '../images';
 
@@ -184,12 +184,12 @@ const styles = StyleSheet.create({
     backgroundColor: CARD,
   },
   error: {
-    color: '#D98A8A',
+    color: DANGER,
     fontSize: 13,
     marginTop: 14,
   },
   notice: {
-    color: '#7FCB9B',
+    color: SUCCESS,
     fontSize: 13,
     marginTop: 14,
   },

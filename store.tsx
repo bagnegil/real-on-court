@@ -114,6 +114,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refresh();
+    // Live updates from other devices. Requires the tables to be in the
+    // `supabase_realtime` publication (see the realtime SQL in the repo notes);
+    // harmless no-op until then.
+    const channel = supabase
+      .channel('roc-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'courts' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => refresh())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function getCourt(id: string) {

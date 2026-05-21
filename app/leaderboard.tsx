@@ -1,81 +1,13 @@
 import { useMemo } from 'react';
-import { Stack } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
-import { Match } from '../data';
 import { useStore } from '../store';
-
-type Standing = { label: string; days: number };
-
-const DAY_MS = 86_400_000;
-
-function pairKey(pair: [string, string]) {
-  return [...pair].sort().join(' & ');
-}
-
-// Reconstruct each court's reigns from its match history and total the time
-// each champion pair held a crown. A win by the current holder is a defense
-// (no change); a win by a new pair starts a new reign; a forfeit ends one.
-// The current holder's reign stays open until now.
-function standingsFromMatches(matches: Match[]): Standing[] {
-  const totalMs = new Map<string, { label: string; ms: number }>();
-  const now = Date.now();
-
-  const byCourt = new Map<string, Match[]>();
-  for (const m of matches) {
-    const list = byCourt.get(m.courtId) ?? [];
-    list.push(m);
-    byCourt.set(m.courtId, list);
-  }
-
-  for (const list of byCourt.values()) {
-    const asc = [...list].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
-
-    let holderKey: string | null = null;
-    let holderLabel = '';
-    let since = 0;
-
-    const closeReign = (end: number) => {
-      if (!holderKey) return;
-      const entry = totalMs.get(holderKey) ?? { label: holderLabel, ms: 0 };
-      entry.ms += Math.max(0, end - since);
-      totalMs.set(holderKey, entry);
-    };
-
-    for (const m of asc) {
-      const t = new Date(m.createdAt).getTime();
-      if (m.winners) {
-        const key = pairKey(m.winners);
-        if (key !== holderKey) {
-          closeReign(t);
-          holderKey = key;
-          holderLabel = `${m.winners[0]} & ${m.winners[1]}`;
-          since = t;
-        }
-      } else {
-        closeReign(t);
-        holderKey = null;
-      }
-    }
-    closeReign(now);
-  }
-
-  return [...totalMs.values()]
-    .map((v) => ({ label: v.label, days: Math.round(v.ms / DAY_MS) }))
-    .filter((v) => v.days > 0)
-    .sort((a, b) => b.days - a.days);
-}
-
-function humanize(days: number) {
-  if (days < 30) return `${days} day${days === 1 ? '' : 's'}`;
-  const months = Math.floor(days / 30);
-  const rest = days % 30;
-  return rest ? `${months} mo ${rest} d` : `${months} mo`;
-}
+import { humanizeDays, standingsFromMatches } from '../reigns';
+import { PlayerName } from '../PlayerName';
 
 export default function LeaderboardScreen() {
+  const router = useRouter();
   const { matches, loading } = useStore();
   const standings = useMemo(() => standingsFromMatches(matches), [matches]);
   const max = standings[0]?.days ?? 1;
@@ -92,20 +24,25 @@ export default function LeaderboardScreen() {
         ) : standings.length === 0 ? (
           <Text style={styles.empty}>No reigns recorded yet.</Text>
         ) : (
-          standings.map((s, i) => (
-            <View key={s.label} style={styles.row}>
-              <View style={styles.rowHeader}>
-                <Text style={styles.rank}>{i + 1}.</Text>
-                <Text style={styles.name} numberOfLines={1}>
-                  {s.label}
-                </Text>
-                <Text style={styles.days}>{humanize(s.days)}</Text>
+          standings.map((s, i) => {
+            const [n1, n2] = s.label.split(' & ');
+            return (
+              <View key={s.label} style={styles.row}>
+                <View style={styles.rowHeader}>
+                  <Text style={styles.rank}>{i + 1}.</Text>
+                  <Text style={styles.name} numberOfLines={1}>
+                    <PlayerName name={n1} style={styles.link} />
+                    <Text> & </Text>
+                    <PlayerName name={n2} style={styles.link} />
+                  </Text>
+                  <Text style={styles.days}>{humanizeDays(s.days)}</Text>
+                </View>
+                <Pressable style={styles.track} onPress={() => router.push(`/court/${s.courtId}`)}>
+                  <View style={[styles.bar, { width: `${Math.max(4, (s.days / max) * 100)}%` }]} />
+                </Pressable>
               </View>
-              <View style={styles.track}>
-                <View style={[styles.bar, { width: `${Math.max(4, (s.days / max) * 100)}%` }]} />
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -163,6 +100,10 @@ const styles = StyleSheet.create({
     color: CREAM,
     fontSize: 15,
     fontFamily: serif,
+  },
+  link: {
+    color: CREAM,
+    textDecorationLine: 'underline',
   },
   days: {
     color: MUTED,

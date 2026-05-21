@@ -23,19 +23,43 @@ import {
 } from '../../data';
 import { useStore } from '../../store';
 import { useAuth } from '../../auth';
+import { currentReignStart, DAY_MS } from '../../reigns';
+import { PlayerName } from '../../PlayerName';
 import { crownImg } from '../../images';
 
-function matchLine(m: Match) {
+function Pair({ p }: { p: [string, string] }) {
+  return (
+    <>
+      <PlayerName name={p[0]} style={styles.link} />
+      <Text> & </Text>
+      <PlayerName name={p[1]} style={styles.link} />
+    </>
+  );
+}
+
+function MatchLine({ m }: { m: Match }) {
   if (m.winners && m.losers) {
-    return `${m.winners[0]} & ${m.winners[1]} def. ${m.losers[0]} & ${m.losers[1]}`;
+    return (
+      <Text style={styles.historyLine}>
+        <Pair p={m.winners} /> def. <Pair p={m.losers} />
+      </Text>
+    );
   }
   if (m.winners) {
-    return `${m.winners[0]} & ${m.winners[1]}`;
+    return (
+      <Text style={styles.historyLine}>
+        <Pair p={m.winners} />
+      </Text>
+    );
   }
   if (m.losers) {
-    return `${m.losers[0]} & ${m.losers[1]}`;
+    return (
+      <Text style={styles.historyLine}>
+        <Pair p={m.losers} />
+      </Text>
+    );
   }
-  return m.note;
+  return <Text style={styles.historyLine}>{m.note}</Text>;
 }
 
 const DECISION_LABEL = { accept: 'Accept', decline: 'Decline', propose: 'Propose' } as const;
@@ -362,6 +386,9 @@ export default function CourtDetailScreen() {
   const courtChallenges = challengesForCourt(court.id);
   const courtMatches = matchesForCourt(court.id);
 
+  const reignStart = court.champions ? currentReignStart(courtMatches) : null;
+  const heldDays = reignStart === null ? null : Math.round((Date.now() - reignStart) / DAY_MS);
+
   const openCategories = new Set(
     courtChallenges
       .filter((c) => c.status !== 'accepted' && c.status !== 'played')
@@ -380,8 +407,17 @@ export default function CourtDetailScreen() {
               <Image source={crownImg} style={styles.crown} resizeMode="contain" />
               <Text style={styles.label}>REIGNING CHAMPIONS</Text>
               <Text style={styles.champions}>
-                {court.champions[0]} & {court.champions[1]}
+                <PlayerName name={court.champions[0]} style={styles.link} />
+                <Text> & </Text>
+                <PlayerName name={court.champions[1]} style={styles.link} />
               </Text>
+              {heldDays !== null ? (
+                <Text style={styles.heldSince}>
+                  {heldDays === 0
+                    ? 'Crowned today'
+                    : `Holding the crown for ${heldDays} day${heldDays === 1 ? '' : 's'}`}
+                </Text>
+              ) : null}
             </View>
           ) : (
             <View style={styles.center}>
@@ -524,7 +560,9 @@ export default function CourtDetailScreen() {
                   <View style={styles.challengeTop}>
                     <View style={styles.challengeInfo}>
                       <Text style={styles.challengeWho}>
-                        {c.challenger[0]} & {c.challenger[1]}
+                        <PlayerName name={c.challenger[0]} style={styles.link} />
+                        <Text> & </Text>
+                        <PlayerName name={c.challenger[1]} style={styles.link} />
                       </Text>
                       <Text style={styles.challengeDay}>
                         {c.day} · {c.time} ({BOOKING_MINUTES} min) ·{' '}
@@ -580,7 +618,7 @@ export default function CourtDetailScreen() {
         ) : (
           courtMatches.map((m) => (
             <View key={m.id} style={styles.historyRow}>
-              <Text style={styles.historyLine}>{matchLine(m)}</Text>
+              <MatchLine m={m} />
               <Text style={styles.historyNote}>{m.note}</Text>
             </View>
           ))
@@ -626,6 +664,11 @@ const styles = StyleSheet.create({
     color: CREAM,
     fontFamily: serif,
     textAlign: 'center',
+  },
+  heldSince: {
+    fontSize: 13,
+    color: GOLD,
+    marginTop: 8,
   },
   vacant: {
     fontSize: 24,
@@ -972,6 +1015,9 @@ const styles = StyleSheet.create({
   historyLine: {
     color: CREAM,
     fontSize: 14,
+  },
+  link: {
+    textDecorationLine: 'underline',
   },
   historyNote: {
     color: MUTED,

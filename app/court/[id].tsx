@@ -1,6 +1,15 @@
 import { useRef, useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../../theme';
 import {
   BOOKING_MINUTES,
@@ -15,8 +24,6 @@ import {
 import { useStore } from '../../store';
 import { crownImg } from '../../images';
 
-const ME: [string, string] = ['You', 'Your partner'];
-
 function matchLine(m: Match) {
   if (m.winners && m.losers) {
     return `${m.winners[0]} & ${m.winners[1]} def. ${m.losers[0]} & ${m.losers[1]}`;
@@ -30,9 +37,264 @@ function matchLine(m: Match) {
   return m.note;
 }
 
+const DECISION_LABEL = { accept: 'Accept', decline: 'Decline', propose: 'Propose' } as const;
+
+// Result recorder for an accepted challenge, including the pair-breaking
+// consent flow: the champion who can't play may accept, decline, or propose.
+function AcceptedResult({
+  champions,
+  onResult,
+}: {
+  champions: [string, string];
+  onResult: (defendersWon: boolean, defenders: [string, string]) => void;
+}) {
+  const [broken, setBroken] = useState(false);
+  const [unavailable, setUnavailable] = useState<0 | 1 | null>(null);
+  const [decision, setDecision] = useState<'accept' | 'decline' | 'propose' | null>(null);
+  const [subName, setSubName] = useState('');
+  const [proposed, setProposed] = useState('');
+  const [chosen, setChosen] = useState(false);
+
+  function toggleBroken() {
+    setBroken((v) => !v);
+    setUnavailable(null);
+    setDecision(null);
+    setSubName('');
+    setProposed('');
+    setChosen(false);
+  }
+
+  function pickUnavailable(i: 0 | 1) {
+    setUnavailable(i);
+    setDecision(null);
+    setSubName('');
+    setProposed('');
+    setChosen(false);
+  }
+
+  function pickDecision(d: 'accept' | 'decline' | 'propose') {
+    setDecision(d);
+    setSubName('');
+    setProposed('');
+    setChosen(false);
+  }
+
+  const available = unavailable === null ? null : champions[unavailable === 0 ? 1 : 0];
+
+  let defenders: [string, string] = champions;
+  let ready = true;
+  let note = 'Both champions play.';
+
+  if (broken) {
+    ready = false;
+    if (unavailable === null || !available) {
+      note = 'Pick the champion who cannot play.';
+    } else if (decision === 'accept') {
+      if (subName.trim()) {
+        defenders = [available, subName.trim()];
+        ready = true;
+        note = `Defending pair: ${available} & ${subName.trim()}`;
+      } else {
+        note = `${available} chooses a substitute.`;
+      }
+    } else if (decision === 'propose') {
+      if (chosen && proposed.trim()) {
+        defenders = [available, proposed.trim()];
+        ready = true;
+        note = `Defending pair: ${available} & ${proposed.trim()}`;
+      } else {
+        note = `${champions[unavailable]} proposes a player for ${available} to choose.`;
+      }
+    } else if (decision === 'decline') {
+      note = `${champions[unavailable]} declined — no substitute may be fielded.`;
+    } else {
+      note = `Waiting for ${champions[unavailable]}'s decision.`;
+    }
+  }
+
+  return (
+    <View style={styles.resultBlock}>
+      <Pressable style={styles.subToggle} onPress={toggleBroken}>
+        <Text style={styles.subToggleText}>
+          {broken ? '☑' : '☐'}  A champion can't play (break the pair)
+        </Text>
+      </Pressable>
+
+      {broken ? (
+        <View style={styles.subForm}>
+          <Text style={styles.subLabel}>Who can't play?</Text>
+          <View style={styles.subPickRow}>
+            {champions.map((n, i) => {
+              const on = unavailable === i;
+              return (
+                <Pressable
+                  key={i}
+                  style={[styles.subPick, on && styles.subPickOn]}
+                  onPress={() => pickUnavailable(i as 0 | 1)}
+                >
+                  <Text style={[styles.subPickText, on && styles.subPickTextOn]}>{n}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {unavailable !== null ? (
+            <>
+              <Text style={styles.subLabel}>{champions[unavailable]}'s decision:</Text>
+              <View style={styles.subPickRow}>
+                {(['accept', 'decline', 'propose'] as const).map((d) => {
+                  const on = decision === d;
+                  return (
+                    <Pressable
+                      key={d}
+                      style={[styles.subPick, on && styles.subPickOn]}
+                      onPress={() => pickDecision(d)}
+                    >
+                      <Text style={[styles.subPickText, on && styles.subPickTextOn]}>
+                        {DECISION_LABEL[d]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {decision === 'accept' && available ? (
+                <TextInput
+                  style={styles.input}
+                  placeholder={`Substitute chosen by ${available}`}
+                  placeholderTextColor={MUTED}
+                  value={subName}
+                  onChangeText={setSubName}
+                />
+              ) : null}
+
+              {decision === 'propose' ? (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={`Player proposed by ${champions[unavailable]}`}
+                    placeholderTextColor={MUTED}
+                    value={proposed}
+                    onChangeText={(t) => {
+                      setProposed(t);
+                      setChosen(false);
+                    }}
+                  />
+                  {proposed.trim() && !chosen ? (
+                    <Pressable style={styles.chooseBtn} onPress={() => setChosen(true)}>
+                      <Text style={styles.chooseBtnText}>
+                        {available} chooses {proposed.trim()}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+          <Text style={ready ? styles.subPreview : styles.lineupNote}>{note}</Text>
+        </View>
+      ) : null}
+
+      <Text style={styles.resultLabel}>Match played — who won?</Text>
+      <View style={styles.resultBtns}>
+        <Pressable
+          style={[styles.resultBtn, styles.resultGold, !ready && styles.resultDisabled]}
+          onPress={() => ready && onResult(true, defenders)}
+          disabled={!ready}
+        >
+          <Text style={styles.resultGoldText}>Defenders won</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.resultBtn, styles.resultOutline]}
+          onPress={() => onResult(false, defenders)}
+        >
+          <Text style={styles.resultOutlineText}>Challengers won</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// Vacant court: two aspirant pairs play, the winners take the crown.
+function VacantClaim({
+  onClaim,
+}: {
+  onClaim: (winners: [string, string], losers: [string, string]) => void;
+}) {
+  const [a1, setA1] = useState('You');
+  const [a2, setA2] = useState('Your partner');
+  const [b1, setB1] = useState('');
+  const [b2, setB2] = useState('');
+
+  const pairA: [string, string] = [a1.trim(), a2.trim()];
+  const pairB: [string, string] = [b1.trim(), b2.trim()];
+  const ready = !!(pairA[0] && pairA[1] && pairB[0] && pairB[1]);
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>Claim this court</Text>
+      <Text style={styles.help}>
+        This court is vacant. Two aspirant pairs play — the winners take the crown.
+      </Text>
+
+      <Text style={styles.fieldLabel}>Aspirant pair A</Text>
+      <TextInput
+        style={[styles.input, styles.inputMb]}
+        placeholder="Player 1"
+        placeholderTextColor={MUTED}
+        value={a1}
+        onChangeText={setA1}
+      />
+      <TextInput
+        style={[styles.input, styles.inputMb]}
+        placeholder="Player 2"
+        placeholderTextColor={MUTED}
+        value={a2}
+        onChangeText={setA2}
+      />
+
+      <Text style={styles.fieldLabel}>Aspirant pair B</Text>
+      <TextInput
+        style={[styles.input, styles.inputMb]}
+        placeholder="Player 1"
+        placeholderTextColor={MUTED}
+        value={b1}
+        onChangeText={setB1}
+      />
+      <TextInput
+        style={[styles.input, styles.inputMb]}
+        placeholder="Player 2"
+        placeholderTextColor={MUTED}
+        value={b2}
+        onChangeText={setB2}
+      />
+
+      <Text style={styles.resultLabel}>Who won?</Text>
+      <View style={styles.resultBtns}>
+        <Pressable
+          style={[styles.resultBtn, styles.resultGold, !ready && styles.resultDisabled]}
+          disabled={!ready}
+          onPress={() => ready && onClaim(pairA, pairB)}
+        >
+          <Text style={styles.resultGoldText}>Pair A won</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.resultBtn, styles.resultOutline, !ready && styles.resultDisabled]}
+          disabled={!ready}
+          onPress={() => ready && onClaim(pairB, pairA)}
+        >
+          <Text style={styles.resultOutlineText}>Pair B won</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function CourtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
+    loading,
     getCourt,
     challengesForCourt,
     matchesForCourt,
@@ -48,6 +310,15 @@ export default function CourtDetailScreen() {
   const [selTime, setSelTime] = useState<string>('19:00');
   const [confirm, setConfirm] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  if (loading && !court) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Court' }} />
+        <ActivityIndicator color={GOLD} style={styles.loader} />
+      </View>
+    );
+  }
 
   if (!court) {
     return (
@@ -73,9 +344,16 @@ export default function CourtDetailScreen() {
     setSelDay(null);
   }
 
-  function onClaim() {
-    claimVacant(court!.id, ME);
-    flash('✓ You are the new champions!');
+  function onResult(challengeId: string, defendersWon: boolean, defenders: [string, string]) {
+    const champs = court!.champions;
+    recordChallengeResult(challengeId, defendersWon, defenders);
+    if (!defendersWon) {
+      flash('✓ New champions crowned!');
+    } else if (champs && defenders[0] === champs[0] && defenders[1] === champs[1]) {
+      flash('✓ Champions defended the crown');
+    } else {
+      flash('✓ Defended with a new lineup');
+    }
   }
 
   const courtChallenges = challengesForCourt(court.id);
@@ -236,45 +514,23 @@ export default function CourtDetailScreen() {
                     {c.status === 'played' ? <Text style={styles.badgePlayed}>Played</Text> : null}
                   </View>
 
-                  {c.status === 'accepted' ? (
-                    <View style={styles.resultBlock}>
-                      <Text style={styles.resultLabel}>Match played — who won?</Text>
-                      <View style={styles.resultBtns}>
-                        <Pressable
-                          style={[styles.resultBtn, styles.resultGold]}
-                          onPress={() => {
-                            recordChallengeResult(c.id, true);
-                            flash('✓ Champions defended the crown');
-                          }}
-                        >
-                          <Text style={styles.resultGoldText}>Champions won</Text>
-                        </Pressable>
-                        <Pressable
-                          style={[styles.resultBtn, styles.resultOutline]}
-                          onPress={() => {
-                            recordChallengeResult(c.id, false);
-                            flash('✓ New champions crowned!');
-                          }}
-                        >
-                          <Text style={styles.resultOutlineText}>Challengers won</Text>
-                        </Pressable>
-                      </View>
-                    </View>
+                  {c.status === 'accepted' && court.champions ? (
+                    <AcceptedResult
+                      champions={court.champions}
+                      onResult={(won, defenders) => onResult(c.id, won, defenders)}
+                    />
                   ) : null}
                 </View>
               ))
             )}
           </>
         ) : (
-          <>
-            <Text style={styles.sectionTitle}>Claim this court</Text>
-            <Text style={styles.help}>
-              This court has no champions. Win a match against other aspirants to take the crown.
-            </Text>
-            <Pressable style={styles.button} onPress={onClaim}>
-              <Text style={styles.buttonText}>Record a win & claim the crown</Text>
-            </Pressable>
-          </>
+          <VacantClaim
+            onClaim={(winners, losers) => {
+              claimVacant(court.id, winners, losers);
+              flash(`✓ ${winners[0]} & ${winners[1]} claimed the crown!`);
+            }}
+          />
         )}
 
         <Text style={[styles.sectionTitle, styles.historyTitle]}>History</Text>
@@ -549,6 +805,85 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(169,185,207,0.2)',
     paddingTop: 12,
   },
+  subToggle: {
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  subToggleText: {
+    color: MUTED,
+    fontSize: 13,
+  },
+  subForm: {
+    marginBottom: 10,
+  },
+  subLabel: {
+    color: CREAM,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  subPickRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  subPick: {
+    borderWidth: 1,
+    borderColor: MUTED,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  subPickOn: {
+    borderColor: GOLD,
+    backgroundColor: 'rgba(201,162,75,0.18)',
+  },
+  subPickText: {
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  subPickTextOn: {
+    color: GOLD,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: MUTED,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    color: CREAM,
+    fontSize: 14,
+  },
+  inputMb: {
+    marginBottom: 8,
+  },
+  subPreview: {
+    color: '#7FCB9B',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  lineupNote: {
+    color: MUTED,
+    fontSize: 13,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  chooseBtn: {
+    borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  chooseBtnText: {
+    color: GOLD,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  resultDisabled: {
+    opacity: 0.4,
+  },
   resultLabel: {
     color: CREAM,
     fontSize: 13,
@@ -600,5 +935,8 @@ const styles = StyleSheet.create({
     color: CREAM,
     fontSize: 16,
     padding: 24,
+  },
+  loader: {
+    marginTop: 40,
   },
 });

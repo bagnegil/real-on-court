@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { Link, Stack } from 'expo-router';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
 import { CLUB_NAME, Court } from '../data';
 import { useStore } from '../store';
@@ -38,7 +38,7 @@ function CourtRow({ court }: { court: Court }) {
 }
 
 export default function CourtsScreen() {
-  const { courts } = useStore();
+  const { courts, loading, error } = useStore();
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -53,11 +53,15 @@ export default function CourtsScreen() {
         </View>
 
         <Text style={styles.clubName}>{CLUB_NAME}</Text>
-        <Text style={styles.clubSub}>{courts.length} COURTS</Text>
+        <Text style={styles.clubSub}>{loading ? 'LOADING…' : `${courts.length} COURTS`}</Text>
 
-        {courts.map((court) => (
-          <CourtRow key={court.id} court={court} />
-        ))}
+        {error ? <Text style={styles.error}>Couldn't load courts: {error}</Text> : null}
+
+        {loading ? (
+          <ActivityIndicator color={GOLD} style={styles.loader} />
+        ) : (
+          courts.map((court) => <CourtRow key={court.id} court={court} />)
+        )}
       </ScrollView>
       <StatusBar style="light" />
     </View>
@@ -110,6 +114,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 22,
     letterSpacing: 2,
+  },
+  loader: {
+    marginTop: 40,
+  },
+  error: {
+    color: '#D98A8A',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
   },
   card: {
     backgroundColor: CARD,

@@ -21,6 +21,7 @@ export type Match = {
   winners: [string, string] | null;
   losers: [string, string] | null;
   note: string;
+  createdAt: string;
 };
 
 export const CLUB_NAME = 'David Lloyd Rugby';

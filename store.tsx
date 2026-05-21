@@ -53,6 +53,7 @@ type MatchRow = {
   loser1: string | null;
   loser2: string | null;
   note: string;
+  created_at: string;
 };
 
 function toCourt(r: CourtRow): Court {
@@ -81,6 +82,7 @@ function toMatch(r: MatchRow): Match {
     winners: r.winner1 && r.winner2 ? [r.winner1, r.winner2] : null,
     losers: r.loser1 && r.loser2 ? [r.loser1, r.loser2] : null,
     note: r.note,
+    createdAt: r.created_at,
   };
 }
 

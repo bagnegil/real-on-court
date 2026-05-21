@@ -82,6 +82,12 @@ export default function CourtsScreen() {
         <Text style={styles.clubName}>{CLUB_NAME}</Text>
         <Text style={styles.clubSub}>{loading ? 'LOADING…' : `${courts.length} COURTS`}</Text>
 
+        <Link href="/leaderboard" asChild>
+          <Pressable style={styles.hofLink}>
+            <Text style={styles.hofLinkText}>🏆  Hall of Fame</Text>
+          </Pressable>
+        </Link>
+
         {error ? <Text style={styles.error}>Couldn't load courts: {error}</Text> : null}
 
         {loading ? (
@@ -158,8 +164,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
     textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: 14,
     letterSpacing: 2,
+  },
+  hofLink: {
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    marginBottom: 22,
+  },
+  hofLinkText: {
+    color: GOLD,
+    fontSize: 14,
+    fontWeight: '600',
   },
   loader: {
     marginTop: 40,

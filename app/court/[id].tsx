@@ -415,15 +415,18 @@ export default function CourtDetailScreen() {
     recordChallengeResult,
     claimVacant,
     vacateCourt,
+    updateCourtW3W,
   } = useStore();
   const court = getCourt(id);
   const router = useRouter();
-  const { playerName } = useAuth();
+  const { playerName, isOwner } = useAuth();
 
   const [selDay, setSelDay] = useState<string | null>(null);
   const [selTime, setSelTime] = useState<string>('19:00');
   const [partner, setPartner] = useState('');
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [editLoc, setEditLoc] = useState(false);
+  const [locInput, setLocInput] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (loading && !court) {
@@ -508,6 +511,48 @@ export default function CourtDetailScreen() {
           >
             📍 ///{w3wWords}  ↗
           </Text>
+        ) : null}
+
+        {isOwner ? (
+          editLoc ? (
+            <View style={styles.locEdit}>
+              <TextInput
+                style={styles.input}
+                value={locInput}
+                onChangeText={setLocInput}
+                placeholder="filled.count.soap"
+                placeholderTextColor={MUTED}
+                autoCapitalize="none"
+              />
+              <View style={styles.locEditBtns}>
+                <Pressable
+                  style={styles.locSave}
+                  onPress={async () => {
+                    const res = await updateCourtW3W(court!.id, locInput.replace(/^\/+/, '').trim());
+                    if (!res.error) {
+                      flash('✓ Location updated');
+                      setEditLoc(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.locSaveText}>Save location</Text>
+                </Pressable>
+                <Pressable onPress={() => setEditLoc(false)} hitSlop={8}>
+                  <Text style={styles.locCancelText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setLocInput(w3wWords ?? '');
+                setEditLoc(true);
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.editLocLink}>✏️ Edit location</Text>
+            </Pressable>
+          )
         ) : null}
 
         <View style={styles.statusBox}>
@@ -759,6 +804,35 @@ const styles = StyleSheet.create({
     color: GOLD,
     fontSize: 13,
     marginBottom: 12,
+  },
+  editLocLink: {
+    color: MUTED,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  locEdit: {
+    marginBottom: 12,
+  },
+  locEditBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  locSave: {
+    backgroundColor: GOLD,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  locSaveText: {
+    color: NAVY,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  locCancelText: {
+    color: MUTED,
+    fontSize: 13,
   },
   statusBox: {
     backgroundColor: CARD,

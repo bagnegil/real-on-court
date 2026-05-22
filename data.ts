@@ -7,6 +7,8 @@ export type Court = {
   clubId: string | null;
   status: CourtStatus;
   w3w: string | null;
+  lat: number | null;
+  lng: number | null;
   createdBy: string | null;
 };
 

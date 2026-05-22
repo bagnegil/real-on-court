@@ -70,6 +70,8 @@ type CourtRow = {
   club_id: string | null;
   status: CourtStatus;
   w3w: string | null;
+  lat: number | null;
+  lng: number | null;
   created_by: string | null;
 };
 type ClubRow = { id: string; name: string; country_id: string | null };
@@ -127,6 +129,8 @@ function toCourt(r: CourtRow): Court {
     clubId: r.club_id,
     status: r.status,
     w3w: r.w3w,
+    lat: r.lat,
+    lng: r.lng,
     createdBy: r.created_by,
   };
 }

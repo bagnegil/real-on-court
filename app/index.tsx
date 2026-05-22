@@ -105,6 +105,9 @@ export default function CourtsScreen() {
         </Text>
 
         <View style={styles.actionRow}>
+          <Pressable style={styles.actionBtn} onPress={() => router.push('/map')}>
+            <Text style={styles.actionBtnText}>🗺  Map</Text>
+          </Pressable>
           <Pressable style={styles.actionBtn} onPress={() => router.push('/leaderboard')}>
             <Text style={styles.actionBtnText}>🏆  Hall of Fame</Text>
           </Pressable>
@@ -112,7 +115,7 @@ export default function CourtsScreen() {
             style={styles.actionBtn}
             onPress={() => router.push(playerName ? '/add-court' : '/login')}
           >
-            <Text style={styles.actionBtnText}>＋  Add a court</Text>
+            <Text style={styles.actionBtnText}>＋  Add</Text>
           </Pressable>
         </View>
 

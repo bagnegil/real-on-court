@@ -65,11 +65,15 @@ function CourtRow({ court }: { court: Court }) {
 
 export default function CourtsScreen() {
   const router = useRouter();
-  const { courts, clubs, countries, loading, error } = useStore();
-  const { playerName, isOwner } = useAuth();
+  const { courts, clubs, countries, loading, error, getClub } = useStore();
+  const { playerName, isOwner, session } = useAuth();
 
   const approved = courts.filter((c) => c.status === 'approved');
   const pendingCount = courts.filter((c) => c.status === 'pending').length;
+  // Courts this player added that aren't live yet (pending or rejected).
+  const mySubmissions = session
+    ? courts.filter((c) => c.createdBy === session.user.id && c.status !== 'approved')
+    : [];
 
   // country -> clubs -> approved courts (only branches that actually have courts)
   const grouped = countries
@@ -118,6 +122,26 @@ export default function CourtsScreen() {
               🛡  Pending approvals{pendingCount ? ` (${pendingCount})` : ''}
             </Text>
           </Pressable>
+        ) : null}
+
+        {mySubmissions.length > 0 ? (
+          <View style={styles.submissionsBlock}>
+            <Text style={styles.submissionsTitle}>Your submissions</Text>
+            {mySubmissions.map((court) => (
+              <Pressable
+                key={court.id}
+                style={styles.submissionRow}
+                onPress={() => router.push(`/court/${court.id}`)}
+              >
+                <Text style={styles.submissionText} numberOfLines={1}>
+                  Court {court.number} · {getClub(court.clubId)?.name ?? 'Unknown club'}
+                </Text>
+                <Text style={court.status === 'rejected' ? styles.badgeRejected : styles.badgePending}>
+                  {court.status === 'rejected' ? 'Rejected' : 'Pending review'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         ) : null}
 
         {error ? <Text style={styles.error}>Couldn't load courts: {error}</Text> : null}
@@ -244,6 +268,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 30,
+  },
+  submissionsBlock: {
+    backgroundColor: CARD,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(169,185,207,0.25)',
+  },
+  submissionsTitle: {
+    color: MUTED,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  submissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  submissionText: {
+    flex: 1,
+    color: CREAM,
+    fontSize: 14,
+  },
+  badgePending: {
+    color: GOLD,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  badgeRejected: {
+    color: DANGER,
+    fontSize: 12,
+    fontWeight: '600',
   },
   countryBlock: {
     marginBottom: 8,

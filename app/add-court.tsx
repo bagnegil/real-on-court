@@ -12,6 +12,7 @@ import {
 import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
 import { useAuth } from '../auth';
 import { useStore } from '../store';
+import { LocationPicker } from '../LocationPicker';
 
 const NEW = '__new';
 
@@ -26,6 +27,8 @@ export default function AddCourtScreen() {
   const [newClub, setNewClub] = useState('');
   const [number, setNumber] = useState('');
   const [w3w, setW3w] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [partner, setPartner] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +57,8 @@ export default function AddCourtScreen() {
       newClubName: clubId === NEW ? newClub : undefined,
       number: Number(number),
       w3w: w3w.trim() || null,
+      lat,
+      lng,
       champions: [playerName, partner.trim()],
     });
     setBusy(false);
@@ -120,6 +125,9 @@ export default function AddCourtScreen() {
         <Text style={styles.label}>what3words address</Text>
         <TextInput style={styles.input} placeholder="filled.count.soap" placeholderTextColor={MUTED} autoCapitalize="none" value={w3w} onChangeText={setW3w} />
         <Text style={styles.hint}>The 3-word address of the court (from the what3words app). Optional — you can add it later.</Text>
+
+        <Text style={styles.label}>Pin the location</Text>
+        <LocationPicker lat={lat} lng={lng} onChange={(la, ln) => { setLat(la); setLng(ln); }} />
 
         <Text style={styles.label}>Claim it — you & your partner</Text>
         <View style={styles.youRow}>

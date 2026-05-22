@@ -14,6 +14,8 @@ export type AddCourtInput = {
   newClubName?: string;
   number: number;
   w3w: string | null;
+  lat: number | null;
+  lng: number | null;
   champions: [string, string];
 };
 
@@ -479,6 +481,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         champion1: input.champions[0],
         champion2: input.champions[1],
         w3w: input.w3w,
+        lat: input.lat,
+        lng: input.lng,
         status: 'pending',
         created_by: userId,
       })

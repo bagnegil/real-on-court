@@ -3,25 +3,7 @@ import { Stack } from 'expo-router';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { CREAM, MUTED, NAVY } from '../theme';
 import { useStore } from '../store';
-
-// Avoid pulling DOM lib types into the RN project; web globals via `g`.
-const g: any = globalThis;
-
-// Load Leaflet from CDN once (web only) so there's no npm/CSS bundling step.
-function loadLeaflet(): Promise<any> {
-  return new Promise((resolve) => {
-    if (g.L) return resolve(g.L);
-    const doc = g.document;
-    const css = doc.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    doc.head.appendChild(css);
-    const script = doc.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => resolve(g.L);
-    doc.head.appendChild(script);
-  });
-}
+import { loadLeaflet } from '../leafletWeb';
 
 export default function MapScreen() {
   const { courts, getClub } = useStore();

@@ -26,6 +26,7 @@ import { useStore } from '../../store';
 import { useAuth } from '../../auth';
 import { currentReignStart, DAY_MS } from '../../reigns';
 import { PlayerName } from '../../PlayerName';
+import { LocationPicker } from '../../LocationPicker';
 import { crownImg } from '../../images';
 
 function Pair({ p }: { p: [string, string] }) {
@@ -416,6 +417,7 @@ export default function CourtDetailScreen() {
     claimVacant,
     vacateCourt,
     updateCourtW3W,
+    updateCourtCoords,
   } = useStore();
   const court = getCourt(id);
   const router = useRouter();
@@ -427,6 +429,8 @@ export default function CourtDetailScreen() {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [editLoc, setEditLoc] = useState(false);
   const [locInput, setLocInput] = useState('');
+  const [locLat, setLocLat] = useState<number | null>(null);
+  const [locLng, setLocLng] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (loading && !court) {
@@ -524,12 +528,26 @@ export default function CourtDetailScreen() {
                 placeholderTextColor={MUTED}
                 autoCapitalize="none"
               />
+              <View style={styles.locPicker}>
+                <LocationPicker
+                  lat={locLat}
+                  lng={locLng}
+                  onChange={(la, ln) => {
+                    setLocLat(la);
+                    setLocLng(ln);
+                  }}
+                />
+              </View>
               <View style={styles.locEditBtns}>
                 <Pressable
                   style={styles.locSave}
                   onPress={async () => {
-                    const res = await updateCourtW3W(court!.id, locInput.replace(/^\/+/, '').trim());
-                    if (!res.error) {
+                    const r1 = await updateCourtW3W(court!.id, locInput.replace(/^\/+/, '').trim());
+                    const r2 =
+                      locLat != null && locLng != null
+                        ? await updateCourtCoords(court!.id, locLat, locLng)
+                        : {};
+                    if (!r1.error && !r2.error) {
                       flash('✓ Location updated');
                       setEditLoc(false);
                     }
@@ -546,6 +564,8 @@ export default function CourtDetailScreen() {
             <Pressable
               onPress={() => {
                 setLocInput(w3wWords ?? '');
+                setLocLat(court!.lat);
+                setLocLng(court!.lng);
                 setEditLoc(true);
               }}
               hitSlop={8}
@@ -812,6 +832,9 @@ const styles = StyleSheet.create({
   },
   locEdit: {
     marginBottom: 12,
+  },
+  locPicker: {
+    marginTop: 10,
   },
   locEditBtns: {
     flexDirection: 'row',

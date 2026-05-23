@@ -1,10 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { Link, Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
 import { Court } from '../data';
 import { useStore } from '../store';
-import { useAuth } from '../auth';
+import { OWNER_EMAIL, useAuth } from '../auth';
 import { ballImg, crownImg } from '../images';
 
 function AuthBar() {
@@ -168,6 +168,17 @@ export default function CourtsScreen() {
             </View>
           ))
         )}
+
+        <Pressable
+          style={styles.feedback}
+          onPress={() =>
+            Linking.openURL(
+              `mailto:${OWNER_EMAIL}?subject=${encodeURIComponent('Real on Court feedback')}`,
+            )
+          }
+        >
+          <Text style={styles.feedbackText}>💬  Send feedback</Text>
+        </Pressable>
       </ScrollView>
       <StatusBar style="light" />
     </View>
@@ -271,6 +282,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 30,
+  },
+  feedback: {
+    alignSelf: 'center',
+    marginTop: 28,
+    paddingVertical: 8,
+  },
+  feedbackText: {
+    color: MUTED,
+    fontSize: 13,
   },
   submissionsBlock: {
     backgroundColor: CARD,

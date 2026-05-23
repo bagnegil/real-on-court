@@ -1,0 +1,14 @@
+# Netlify build config — auto-deploys on every push to the repo.
+# Runs the web export + the no-translate patch, then publishes dist/.
+[build]
+  command = "npm run export:web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback (also covered by public/_redirects, kept here for clarity).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

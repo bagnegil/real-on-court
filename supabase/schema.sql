@@ -78,6 +78,14 @@ create table public.players (
   created_at timestamptz not null default now()
 );
 
+-- In-app feedback from players (owner-readable only).
+create table public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  author text,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
 -- ── Row Level Security ───────────────────────────────────────────────────
 
 alter table public.profiles enable row level security;
@@ -87,6 +95,7 @@ alter table public.courts enable row level security;
 alter table public.challenges enable row level security;
 alter table public.matches enable row level security;
 alter table public.players enable row level security;
+alter table public.feedback enable row level security;
 
 -- Public reads (courts handled separately to hide pending ones).
 create policy "read profiles" on public.profiles for select using (true);
@@ -118,6 +127,12 @@ create policy "auth update challenges" on public.challenges for update to authen
 create policy "auth insert matches" on public.matches for insert to authenticated with check (true);
 create policy "auth insert players" on public.players for insert to authenticated with check (true);
 create policy "auth update players" on public.players for update to authenticated using (true) with check (true);
+
+-- Feedback: any signed-in user can submit; only the owner can read it.
+create policy "auth insert feedback" on public.feedback for insert to authenticated with check (true);
+create policy "owner read feedback" on public.feedback for select using (
+  coalesce(auth.jwt() ->> 'email', '') = 'bagnegil@gmail.com'
+);
 
 -- ── Auth trigger ─────────────────────────────────────────────────────────
 

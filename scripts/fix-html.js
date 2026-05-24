@@ -7,9 +7,11 @@ const path = require('path');
 const file = path.join(__dirname, '..', 'dist', 'index.html');
 let html = fs.readFileSync(file, 'utf8');
 
-html = html.replace(/<html\b([^>]*)>/i, (m, attrs) =>
-  /translate=/.test(attrs) ? m : `<html${attrs} lang="en" translate="no">`,
-);
+html = html.replace(/<html\b([^>]*)>/i, (m, attrs) => {
+  if (/translate=/.test(attrs)) return m;
+  const withLang = /\blang=/.test(attrs) ? attrs : `${attrs} lang="en"`;
+  return `<html${withLang} translate="no">`;
+});
 if (!/name="google"\s+content="notranslate"/.test(html)) {
   html = html.replace(/<\/head>/i, '    <meta name="google" content="notranslate" />\n  </head>');
 }

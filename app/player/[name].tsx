@@ -43,7 +43,10 @@ export default function PlayerScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ title: name || 'Player' }} />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.name, signedUpNames.has(name) && { color: SIGNED_IN }]}>{name}</Text>
+        <Text style={[styles.name, signedUpNames.has(name) && { color: SIGNED_IN }]}>
+          {name}
+          {signedUpNames.has(name) ? ' ✓' : ''}
+        </Text>
 
         {loading ? (
           <ActivityIndicator color={GOLD} style={styles.loader} />

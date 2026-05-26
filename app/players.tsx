@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../theme';
+import { CARD, CREAM, GOLD, MUTED, NAVY, serif, SIGNED_IN } from '../theme';
 import { useStore } from '../store';
 import { supabase } from '../supabase';
 
@@ -30,11 +30,16 @@ export default function PlayersScreen() {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [profileNames, players]);
 
+  const signedUp = useMemo(() => new Set(profileNames), [profileNames]);
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Players' }} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.subtitle}>{allNames.length} PLAYERS</Text>
+        <Text style={styles.legend}>
+          Names in <Text style={styles.legendSignedIn}>blue</Text> have signed up.
+        </Text>
 
         {loading ? (
           <ActivityIndicator color={GOLD} style={styles.loader} />
@@ -54,7 +59,7 @@ export default function PlayersScreen() {
                 style={styles.row}
                 onPress={() => router.push(`/player/${encodeURIComponent(name)}`)}
               >
-                <Text style={styles.name}>{name}</Text>
+                <Text style={[styles.name, signedUp.has(name) && styles.nameSignedIn]}>{name}</Text>
                 {meta ? <Text style={styles.meta}>{meta}</Text> : null}
               </Pressable>
             );
@@ -84,5 +89,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   name: { color: CREAM, fontSize: 16, fontFamily: serif },
+  nameSignedIn: { color: SIGNED_IN },
   meta: { color: MUTED, fontSize: 13, marginTop: 4 },
+  legend: {
+    color: MUTED,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: -10,
+    marginBottom: 16,
+  },
+  legendSignedIn: { color: SIGNED_IN, fontWeight: '600' },
 });

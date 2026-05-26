@@ -108,8 +108,11 @@ export default function CourtsScreen() {
           <Pressable style={styles.actionBtn} onPress={() => router.push('/map')}>
             <Text style={styles.actionBtnText}>🗺  Map</Text>
           </Pressable>
+          <Pressable style={styles.actionBtn} onPress={() => router.push('/players')}>
+            <Text style={styles.actionBtnText}>👥  Players</Text>
+          </Pressable>
           <Pressable style={styles.actionBtn} onPress={() => router.push('/leaderboard')}>
-            <Text style={styles.actionBtnText}>🏆  Hall of Fame</Text>
+            <Text style={styles.actionBtnText}>🏆  Hall</Text>
           </Pressable>
           <Pressable
             style={styles.actionBtn}

@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { Link, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
+import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif, SIGNED_IN } from '../theme';
 import { Court } from '../data';
 import { useStore } from '../store';
 import { useAuth } from '../auth';
@@ -33,6 +33,8 @@ function AuthBar() {
 }
 
 function CourtRow({ court }: { court: Court }) {
+  const { signedUpNames } = useStore();
+  const tint = (name: string) => (signedUpNames.has(name) ? { color: SIGNED_IN } : null);
   return (
     <Link href={`/court/${court.id}`} asChild>
       <Pressable style={styles.card}>
@@ -47,7 +49,9 @@ function CourtRow({ court }: { court: Court }) {
           <View>
             <Text style={styles.label}>CHAMPIONS</Text>
             <Text style={styles.champions}>
-              {court.champions[0]} & {court.champions[1]}
+              <Text style={tint(court.champions[0])}>{court.champions[0]}</Text>
+              {' & '}
+              <Text style={tint(court.champions[1])}>{court.champions[1]}</Text>
             </Text>
           </View>
         ) : (

@@ -26,6 +26,8 @@ type Store = {
   players: Player[];
   countries: Country[];
   clubs: Club[];
+  // Display names of every Supabase auth account (one per profiles row).
+  signedUpNames: Set<string>;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -176,20 +178,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [signedUpNames, setSignedUpNames] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setError(null);
-    const [c, ch, ma, pl, co, cl] = await Promise.all([
+    const [c, ch, ma, pl, co, cl, pf] = await Promise.all([
       supabase.from('courts').select('*').order('number'),
       supabase.from('challenges').select('*').order('created_at'),
       supabase.from('matches').select('*').order('created_at', { ascending: false }),
       supabase.from('players').select('*'),
       supabase.from('countries').select('*').order('name'),
       supabase.from('clubs').select('*').order('name'),
+      supabase.from('profiles').select('name'),
     ]);
-    const failed = c.error || ch.error || ma.error || pl.error || co.error || cl.error;
+    const failed = c.error || ch.error || ma.error || pl.error || co.error || cl.error || pf.error;
     if (failed) {
       setError(failed.message);
       setLoading(false);
@@ -201,6 +205,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setPlayers((pl.data ?? []).map(toPlayer));
     setCountries((co.data ?? []).map(toCountry));
     setClubs((cl.data ?? []).map(toClub));
+    setSignedUpNames(new Set((pf.data ?? []).map((r: any) => r.name).filter(Boolean)));
     setLoading(false);
   }
 
@@ -539,6 +544,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         players,
         countries,
         clubs,
+        signedUpNames,
         loading,
         error,
         refresh,

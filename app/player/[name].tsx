@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CARD, CREAM, GOLD, MUTED, NAVY, serif } from '../../theme';
+import { CARD, CREAM, GOLD, MUTED, NAVY, serif, SIGNED_IN } from '../../theme';
 import { useStore } from '../../store';
 import { humanizeDays, playerReigns } from '../../reigns';
 
@@ -23,7 +23,7 @@ export default function PlayerScreen() {
   const { name: raw } = useLocalSearchParams<{ name: string }>();
   const name = decodeURIComponent(raw ?? '');
   const router = useRouter();
-  const { courts, matches, loading, getPlayer } = useStore();
+  const { courts, matches, loading, getPlayer, signedUpNames } = useStore();
 
   const courtNumber = (courtId: string) => courts.find((c) => c.id === courtId)?.number ?? '?';
   const info = getPlayer(name);
@@ -43,7 +43,7 @@ export default function PlayerScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ title: name || 'Player' }} />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.name}>{name}</Text>
+        <Text style={[styles.name, signedUpNames.has(name) && { color: SIGNED_IN }]}>{name}</Text>
 
         {loading ? (
           <ActivityIndicator color={GOLD} style={styles.loader} />

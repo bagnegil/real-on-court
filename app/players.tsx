@@ -1,36 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CARD, CREAM, GOLD, MUTED, NAVY, serif, SIGNED_IN } from '../theme';
 import { useStore } from '../store';
-import { supabase } from '../supabase';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function PlayersScreen() {
   const router = useRouter();
-  const { players, loading, getPlayer } = useStore();
-  const [profileNames, setProfileNames] = useState<string[]>([]);
-
-  // Signed-up users (read from public profiles). Combined with the players
-  // table below so the roster covers both real accounts and seeded names.
-  useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('name')
-      .then(({ data }) => {
-        if (data) setProfileNames(data.map((r: any) => r.name).filter(Boolean));
-      });
-  }, []);
+  const { players, loading, getPlayer, signedUpNames } = useStore();
 
   const allNames = useMemo(() => {
     const set = new Set<string>();
-    profileNames.forEach((n) => set.add(n));
+    signedUpNames.forEach((n) => set.add(n));
     players.forEach((p) => set.add(p.name));
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [profileNames, players]);
-
-  const signedUp = useMemo(() => new Set(profileNames), [profileNames]);
+  }, [signedUpNames, players]);
 
   return (
     <View style={styles.container}>
@@ -59,7 +44,7 @@ export default function PlayersScreen() {
                 style={styles.row}
                 onPress={() => router.push(`/player/${encodeURIComponent(name)}`)}
               >
-                <Text style={[styles.name, signedUp.has(name) && styles.nameSignedIn]}>{name}</Text>
+                <Text style={[styles.name, signedUpNames.has(name) && styles.nameSignedIn]}>{name}</Text>
                 {meta ? <Text style={styles.meta}>{meta}</Text> : null}
               </Pressable>
             );

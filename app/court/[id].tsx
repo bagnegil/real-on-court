@@ -41,11 +41,15 @@ function Pair({ p }: { p: [string, string] }) {
 
 function MatchLine({ m }: { m: Match }) {
   const score = m.score ? <Text style={styles.historyScore}> · {m.score}</Text> : null;
+  const pending = !m.confirmedAt && m.winners && m.losers ? (
+    <Text style={styles.historyPending}> · pending</Text>
+  ) : null;
   if (m.winners && m.losers) {
     return (
       <Text style={styles.historyLine}>
         <Pair p={m.winners} /> def. <Pair p={m.losers} />
         {score}
+        {pending}
       </Text>
     );
   }
@@ -419,6 +423,7 @@ export default function CourtDetailScreen() {
     updateCourtW3W,
     updateCourtCoords,
     setCourtChampions,
+    confirmMatch,
   } = useStore();
   const court = getCourt(id);
   const router = useRouter();
@@ -493,6 +498,13 @@ export default function CourtDetailScreen() {
   const country = getCountry(club?.countryId ?? null);
   // Players may type the address with or without the "///" prefix.
   const w3wWords = court.w3w ? court.w3w.replace(/^\/+/, '').trim() : null;
+
+  // Most recent unconfirmed match on this court (forfeits are auto-confirmed).
+  const pendingMatch = courtMatches.find((m) => !m.confirmedAt && m.winners && m.losers);
+  const canConfirmPending = !!(
+    pendingMatch &&
+    (isOwner || (playerName && pendingMatch.losers?.includes(playerName)))
+  );
 
   const openCategories = new Set(
     courtChallenges
@@ -658,6 +670,31 @@ export default function CourtDetailScreen() {
               <Text style={styles.editLocLink}>✏️ Edit champions</Text>
             </Pressable>
           )
+        ) : null}
+
+        {pendingMatch && pendingMatch.winners && pendingMatch.losers ? (
+          <View style={styles.pendingBox}>
+            <Text style={styles.pendingTitle}>⏳ Awaiting result confirmation</Text>
+            <Text style={styles.pendingText}>
+              {pendingMatch.winners[0]} & {pendingMatch.winners[1]} def. {pendingMatch.losers[0]} & {pendingMatch.losers[1]}
+              {pendingMatch.score ? ` · ${pendingMatch.score}` : ''}
+            </Text>
+            {canConfirmPending ? (
+              <Pressable
+                style={styles.pendingConfirm}
+                onPress={async () => {
+                  const res = await confirmMatch(pendingMatch.id);
+                  if (!res.error) flash('✓ Result confirmed');
+                }}
+              >
+                <Text style={styles.pendingConfirmText}>Confirm result</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.pendingHint}>
+                Waiting for {pendingMatch.losers[0]} or {pendingMatch.losers[1]} to confirm.
+              </Text>
+            )}
+          </View>
         ) : null}
 
         {confirm ? <Text style={styles.confirm}>{confirm}</Text> : null}
@@ -1354,6 +1391,20 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 40,
   },
+  pendingBox: {
+    backgroundColor: 'rgba(201,162,75,0.12)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GOLD,
+    padding: 14,
+    marginBottom: 14,
+  },
+  pendingTitle: { color: GOLD, fontSize: 14, fontWeight: '600', marginBottom: 6 },
+  pendingText: { color: CREAM, fontSize: 14, lineHeight: 19, marginBottom: 10 },
+  pendingConfirm: { backgroundColor: GOLD, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  pendingConfirmText: { color: NAVY, fontWeight: 'bold', fontSize: 13 },
+  pendingHint: { color: MUTED, fontSize: 12, fontStyle: 'italic' },
+  historyPending: { color: MUTED, fontStyle: 'italic' },
   signInBox: {
     backgroundColor: CARD,
     borderRadius: 12,

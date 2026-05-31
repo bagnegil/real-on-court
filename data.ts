@@ -33,6 +33,7 @@ export type Match = {
   losers: [string, string] | null;
   note: string;
   score: string | null;
+  confirmedAt: string | null;
   createdAt: string;
 };
 

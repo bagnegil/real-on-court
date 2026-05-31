@@ -40,6 +40,7 @@ type Store = {
   updateCourtW3W: (courtId: string, w3w: string) => Promise<Result>;
   updateCourtCoords: (courtId: string, lat: number, lng: number) => Promise<Result>;
   setCourtChampions: (courtId: string, c1: string | null, c2: string | null) => Promise<Result>;
+  confirmMatch: (matchId: string) => Promise<Result>;
   challengesForCourt: (courtId: string) => Challenge[];
   matchesForCourt: (courtId: string) => Match[];
   updatePlayer: (name: string, fields: Partial<Omit<Player, 'name'>>) => Promise<Result>;
@@ -100,6 +101,7 @@ type MatchRow = {
   loser2: string | null;
   note: string;
   score: string | null;
+  confirmed_at: string | null;
   created_at: string;
 };
 
@@ -168,6 +170,7 @@ function toMatch(r: MatchRow): Match {
     losers: r.loser1 && r.loser2 ? [r.loser1, r.loser2] : null,
     note: r.note,
     score: r.score,
+    confirmedAt: r.confirmed_at,
     createdAt: r.created_at,
   };
 }
@@ -340,6 +343,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loser2: losers[1],
           note,
           score: score ?? null,
+          confirmed_at: null,
         })
         .select()
         .single(),
@@ -378,6 +382,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loser2: losers?.[1] ?? null,
           note: losers ? 'Won the vacant court' : 'Claimed the vacant court',
           score: score ?? null,
+          confirmed_at: null,
         })
         .select()
         .single(),
@@ -411,6 +416,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           loser1: former?.[0] ?? null,
           loser2: former?.[1] ?? null,
           note: 'Court forfeited — champions failed to defend',
+          confirmed_at: new Date().toISOString(),
         })
         .select()
         .single(),
@@ -552,6 +558,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {};
   }
 
+  async function confirmMatch(matchId: string): Promise<Result> {
+    const { data, error: err } = await supabase
+      .from('matches')
+      .update({ confirmed_at: new Date().toISOString() })
+      .eq('id', matchId)
+      .select()
+      .single();
+    if (err) return fail(err.message);
+    setMatches((prev) => prev.map((m) => (m.id === matchId ? toMatch(data) : m)));
+    return {};
+  }
+
   return (
     <StoreContext.Provider
       value={{
@@ -574,6 +592,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updateCourtW3W,
         updateCourtCoords,
         setCourtChampions,
+        confirmMatch,
         challengesForCourt,
         matchesForCourt,
         proposeChallenge,

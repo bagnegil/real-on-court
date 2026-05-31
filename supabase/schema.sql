@@ -62,6 +62,7 @@ create table public.matches (
   loser2 text,
   note text,
   score text,                                -- set scores, winner-first e.g. "6-3, 6-4"
+  confirmed_at timestamptz,                  -- null = pending; set when other team confirms
   created_at timestamptz not null default now()
 );
 
@@ -125,6 +126,7 @@ create policy "auth update courts" on public.courts for update to authenticated 
 create policy "auth insert challenges" on public.challenges for insert to authenticated with check (true);
 create policy "auth update challenges" on public.challenges for update to authenticated using (true) with check (true);
 create policy "auth insert matches" on public.matches for insert to authenticated with check (true);
+create policy "auth confirm matches" on public.matches for update to authenticated using (true) with check (true);
 create policy "auth insert players" on public.players for insert to authenticated with check (true);
 create policy "auth update players" on public.players for update to authenticated using (true) with check (true);
 

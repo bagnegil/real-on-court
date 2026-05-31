@@ -418,6 +418,7 @@ export default function CourtDetailScreen() {
     vacateCourt,
     updateCourtW3W,
     updateCourtCoords,
+    setCourtChampions,
   } = useStore();
   const court = getCourt(id);
   const router = useRouter();
@@ -431,6 +432,9 @@ export default function CourtDetailScreen() {
   const [locInput, setLocInput] = useState('');
   const [locLat, setLocLat] = useState<number | null>(null);
   const [locLng, setLocLng] = useState<number | null>(null);
+  const [editChamp, setEditChamp] = useState(false);
+  const [c1Input, setC1Input] = useState('');
+  const [c2Input, setC2Input] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (loading && !court) {
@@ -600,6 +604,61 @@ export default function CourtDetailScreen() {
             </View>
           )}
         </View>
+
+        {isOwner && court.champions ? (
+          editChamp ? (
+            <View style={styles.locEdit}>
+              <Text style={styles.fieldLabel}>Champion 1</Text>
+              <TextInput
+                style={[styles.input, styles.inputMb]}
+                value={c1Input}
+                onChangeText={setC1Input}
+                placeholderTextColor={MUTED}
+                autoCapitalize="words"
+              />
+              <Text style={styles.fieldLabel}>Champion 2</Text>
+              <TextInput
+                style={styles.input}
+                value={c2Input}
+                onChangeText={setC2Input}
+                placeholderTextColor={MUTED}
+                autoCapitalize="words"
+              />
+              <View style={styles.locEditBtns}>
+                <Pressable
+                  style={styles.locSave}
+                  onPress={async () => {
+                    const res = await setCourtChampions(
+                      court!.id,
+                      c1Input.trim() || null,
+                      c2Input.trim() || null,
+                    );
+                    if (!res.error) {
+                      flash('✓ Champions updated');
+                      setEditChamp(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.locSaveText}>Save champions</Text>
+                </Pressable>
+                <Pressable onPress={() => setEditChamp(false)} hitSlop={8}>
+                  <Text style={styles.locCancelText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setC1Input(court!.champions![0]);
+                setC2Input(court!.champions![1]);
+                setEditChamp(true);
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.editLocLink}>✏️ Edit champions</Text>
+            </Pressable>
+          )
+        ) : null}
 
         {confirm ? <Text style={styles.confirm}>{confirm}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}

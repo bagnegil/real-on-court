@@ -39,6 +39,7 @@ type Store = {
   setCourtStatus: (courtId: string, status: CourtStatus) => Promise<Result>;
   updateCourtW3W: (courtId: string, w3w: string) => Promise<Result>;
   updateCourtCoords: (courtId: string, lat: number, lng: number) => Promise<Result>;
+  setCourtChampions: (courtId: string, c1: string | null, c2: string | null) => Promise<Result>;
   challengesForCourt: (courtId: string) => Challenge[];
   matchesForCourt: (courtId: string) => Match[];
   updatePlayer: (name: string, fields: Partial<Omit<Player, 'name'>>) => Promise<Result>;
@@ -535,6 +536,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {};
   }
 
+  async function setCourtChampions(
+    courtId: string,
+    c1: string | null,
+    c2: string | null,
+  ): Promise<Result> {
+    const { data, error: err } = await supabase
+      .from('courts')
+      .update({ champion1: c1, champion2: c2 })
+      .eq('id', courtId)
+      .select()
+      .single();
+    if (err) return fail(err.message);
+    setCourts((prev) => prev.map((c) => (c.id === courtId ? toCourt(data) : c)));
+    return {};
+  }
+
   return (
     <StoreContext.Provider
       value={{
@@ -556,6 +573,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setCourtStatus,
         updateCourtW3W,
         updateCourtCoords,
+        setCourtChampions,
         challengesForCourt,
         matchesForCourt,
         proposeChallenge,

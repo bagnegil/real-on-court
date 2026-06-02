@@ -13,6 +13,7 @@ import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif } from '../theme';
 import { useAuth } from '../auth';
 import { useStore } from '../store';
 import { LocationPicker } from '../LocationPicker';
+import { NameSuggest } from '../NameSuggest';
 
 const NEW = '__new';
 
@@ -133,7 +134,15 @@ export default function AddCourtScreen() {
         <View style={styles.youRow}>
           <Text style={styles.you}>{playerName}</Text>
           <Text style={styles.amp}>&</Text>
-          <TextInput style={[styles.input, styles.partnerInput]} placeholder="Partner's name" placeholderTextColor={MUTED} autoCapitalize="words" value={partner} onChangeText={setPartner} />
+          <View style={styles.partnerInput}>
+            <NameSuggest
+              value={partner}
+              onChange={setPartner}
+              placeholder="Partner's name"
+              inputStyle={styles.input}
+              exclude={[playerName]}
+            />
+          </View>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}

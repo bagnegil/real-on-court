@@ -27,6 +27,7 @@ import { useAuth } from '../../auth';
 import { currentReignStart, DAY_MS } from '../../reigns';
 import { PlayerName } from '../../PlayerName';
 import { LocationPicker } from '../../LocationPicker';
+import { NameSuggest } from '../../NameSuggest';
 import { crownImg } from '../../images';
 
 function Pair({ p }: { p: [string, string] }) {
@@ -266,26 +267,26 @@ function AcceptedResult({
               </View>
 
               {decision === 'accept' && available ? (
-                <TextInput
-                  style={styles.input}
-                  placeholder={`Substitute chosen by ${available}`}
-                  placeholderTextColor={MUTED}
+                <NameSuggest
                   value={subName}
-                  onChangeText={setSubName}
+                  onChange={setSubName}
+                  placeholder={`Substitute chosen by ${available}`}
+                  inputStyle={styles.input}
+                  exclude={[champions[0], champions[1]]}
                 />
               ) : null}
 
               {decision === 'propose' ? (
                 <>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={`Player proposed by ${champions[unavailable]}`}
-                    placeholderTextColor={MUTED}
+                  <NameSuggest
                     value={proposed}
-                    onChangeText={(t) => {
+                    onChange={(t) => {
                       setProposed(t);
                       setChosen(false);
                     }}
+                    placeholder={`Player proposed by ${champions[unavailable]}`}
+                    inputStyle={styles.input}
+                    exclude={[champions[0], champions[1]]}
                   />
                   {proposed.trim() && !chosen ? (
                     <Pressable style={styles.chooseBtn} onPress={() => setChosen(true)}>
@@ -351,36 +352,44 @@ function VacantClaim({
       </Text>
 
       <Text style={styles.fieldLabel}>Aspirant pair A</Text>
-      <TextInput
-        style={[styles.input, styles.inputMb]}
-        placeholder="Player 1"
-        placeholderTextColor={MUTED}
-        value={a1}
-        onChangeText={setA1}
-      />
-      <TextInput
-        style={[styles.input, styles.inputMb]}
-        placeholder="Player 2"
-        placeholderTextColor={MUTED}
-        value={a2}
-        onChangeText={setA2}
-      />
+      <View style={styles.inputMb}>
+        <NameSuggest
+          value={a1}
+          onChange={setA1}
+          placeholder="Player 1"
+          inputStyle={styles.input}
+          exclude={[a2, b1, b2]}
+        />
+      </View>
+      <View style={styles.inputMb}>
+        <NameSuggest
+          value={a2}
+          onChange={setA2}
+          placeholder="Player 2"
+          inputStyle={styles.input}
+          exclude={[a1, b1, b2]}
+        />
+      </View>
 
       <Text style={styles.fieldLabel}>Aspirant pair B</Text>
-      <TextInput
-        style={[styles.input, styles.inputMb]}
-        placeholder="Player 1"
-        placeholderTextColor={MUTED}
-        value={b1}
-        onChangeText={setB1}
-      />
-      <TextInput
-        style={[styles.input, styles.inputMb]}
-        placeholder="Player 2"
-        placeholderTextColor={MUTED}
-        value={b2}
-        onChangeText={setB2}
-      />
+      <View style={styles.inputMb}>
+        <NameSuggest
+          value={b1}
+          onChange={setB1}
+          placeholder="Player 1"
+          inputStyle={styles.input}
+          exclude={[a1, a2, b2]}
+        />
+      </View>
+      <View style={styles.inputMb}>
+        <NameSuggest
+          value={b2}
+          onChange={setB2}
+          placeholder="Player 2"
+          inputStyle={styles.input}
+          exclude={[a1, a2, b1]}
+        />
+      </View>
 
       <ScoreEntry labelA="Pair A" labelB="Pair B" sets={sets} onChange={setSets} />
 
@@ -719,13 +728,12 @@ export default function CourtDetailScreen() {
             </Text>
 
             <Text style={styles.fieldLabel}>Your partner</Text>
-            <TextInput
-              style={[styles.input, styles.partnerInput]}
-              placeholder="Partner's name"
-              placeholderTextColor={MUTED}
-              autoCapitalize="words"
+            <NameSuggest
               value={partner}
-              onChangeText={setPartner}
+              onChange={setPartner}
+              placeholder="Partner's name"
+              inputStyle={[styles.input, styles.partnerInput]}
+              exclude={[playerName]}
             />
             <Text style={styles.challengerNote}>
               Challenging as {playerName} & {partner.trim() || '…'}

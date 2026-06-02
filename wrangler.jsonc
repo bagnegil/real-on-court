@@ -1,0 +1,12 @@
+// Cloudflare Workers Static Assets config — serves dist/ as a single-page app.
+// "single-page-application" makes unmatched routes (e.g. /map, /court/<id>)
+// fall through to index.html so client-side routing works on hard refresh.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "real-on-court",
+  "compatibility_date": "2026-06-02",
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application"
+  }
+}

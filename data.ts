@@ -50,6 +50,35 @@ export type Player = {
 
 export const PREFERRED_SIDES = ['Left', 'Right', 'Both'] as const;
 
+// Day/time helpers for the booking flow — show the next 7 days from now, and
+// drop past time slots when "today" is selected.
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export type UpcomingDay = { date: Date; day: string; label: string; sub: string };
+
+export function upcomingDays(now: Date = new Date()): UpcomingDay[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    d.setHours(0, 0, 0, 0);
+    const day = DOW[d.getDay()];
+    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : day;
+    const sub = `${d.getDate()} ${MONTH[d.getMonth()]}`;
+    return { date: d, day, label, sub };
+  });
+}
+
+export function timesAfterNow(times: readonly string[], date: Date, now: Date = new Date()): string[] {
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (!sameDay) return [...times];
+  const cur = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return times.filter((t) => t > cur);
+}
+
 export const CLUB_NAME = 'David Lloyd Rugby';
 
 export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

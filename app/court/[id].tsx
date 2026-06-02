@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -15,12 +15,13 @@ import { CARD, CREAM, DANGER, GOLD, MUTED, NAVY, serif, SUCCESS } from '../../th
 import {
   BOOKING_MINUTES,
   CATEGORY_LABEL,
-  DAYS,
   KICKOFF_TIMES,
   Match,
   REQUIRED_CATEGORIES,
   addMinutes,
   challengeCategory,
+  timesAfterNow,
+  upcomingDays,
 } from '../../data';
 import { useStore } from '../../store';
 import { useAuth } from '../../auth';
@@ -438,8 +439,19 @@ export default function CourtDetailScreen() {
   const router = useRouter();
   const { playerName, isOwner } = useAuth();
 
-  const [selDay, setSelDay] = useState<string | null>(null);
+  const slots = useMemo(() => upcomingDays(), []);
+  const [selDay, setSelDay] = useState<number | null>(null);
   const [selTime, setSelTime] = useState<string>('19:00');
+  const selDayObj = selDay === null ? null : slots[selDay];
+  const availableTimes = useMemo(
+    () => (selDayObj ? timesAfterNow(KICKOFF_TIMES, selDayObj.date) : [...KICKOFF_TIMES]),
+    [selDayObj],
+  );
+  useEffect(() => {
+    if (selDay !== null && selTime && !availableTimes.includes(selTime)) {
+      setSelTime(availableTimes[0] ?? '');
+    }
+  }, [selDay, availableTimes, selTime]);
   const [partner, setPartner] = useState('');
   const [confirm, setConfirm] = useState<string | null>(null);
   const [editLoc, setEditLoc] = useState(false);
@@ -478,10 +490,11 @@ export default function CourtDetailScreen() {
   }
 
   async function onPropose() {
-    if (!selDay || !playerName || !partner.trim()) return;
-    const res = await proposeChallenge(court!.id, selDay, selTime, [playerName, partner.trim()]);
+    if (selDay === null || !selTime || !playerName || !partner.trim()) return;
+    const chosen = slots[selDay];
+    const res = await proposeChallenge(court!.id, chosen.day, selTime, [playerName, partner.trim()]);
     if (res.error) return; // failure is surfaced via the store error banner
-    flash(`✓ Challenge booked: ${selDay} ${selTime} (${BOOKING_MINUTES} min)`);
+    flash(`✓ Challenge booked: ${chosen.label} ${chosen.sub} · ${selTime} (${BOOKING_MINUTES} min)`);
     setSelDay(null);
     setPartner('');
   }
@@ -739,21 +752,22 @@ export default function CourtDetailScreen() {
               Challenging as {playerName} & {partner.trim() || '…'}
             </Text>
 
-            <Text style={styles.fieldLabel}>Day</Text>
-            <View style={styles.dayRow}>
-              {DAYS.map((d) => {
-                const on = selDay === d;
+            <Text style={styles.fieldLabel}>Day (next 7 days)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayRow}>
+              {slots.map((s, i) => {
+                const on = selDay === i;
                 return (
                   <Pressable
-                    key={d}
+                    key={i}
                     style={[styles.dayBtn, on && styles.dayBtnOn]}
-                    onPress={() => setSelDay(d)}
+                    onPress={() => setSelDay(i)}
                   >
-                    <Text style={[styles.dayBtnText, on && styles.dayBtnTextOn]}>{d}</Text>
+                    <Text style={[styles.dayBtnText, on && styles.dayBtnTextOn]}>{s.label}</Text>
+                    <Text style={[styles.dayBtnSub, on && styles.dayBtnSubOn]}>{s.sub}</Text>
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
 
             <Text style={styles.fieldLabel}>Kick-off time</Text>
             <ScrollView
@@ -761,37 +775,42 @@ export default function CourtDetailScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.timeRow}
             >
-              {KICKOFF_TIMES.map((t) => {
-                const on = selTime === t;
-                return (
-                  <Pressable
-                    key={t}
-                    style={[styles.timeChip, on && styles.timeChipOn]}
-                    onPress={() => setSelTime(t)}
-                  >
-                    <Text style={[styles.timeChipText, on && styles.timeChipTextOn]}>{t}</Text>
-                  </Pressable>
-                );
-              })}
+              {availableTimes.length === 0 ? (
+                <Text style={styles.endHint}>No slots left today — pick another day.</Text>
+              ) : (
+                availableTimes.map((t) => {
+                  const on = selTime === t;
+                  return (
+                    <Pressable
+                      key={t}
+                      style={[styles.timeChip, on && styles.timeChipOn]}
+                      onPress={() => setSelTime(t)}
+                    >
+                      <Text style={[styles.timeChipText, on && styles.timeChipTextOn]}>{t}</Text>
+                    </Pressable>
+                  );
+                })
+              )}
             </ScrollView>
             <Text style={styles.endHint}>
+              {selDayObj ? `${selDayObj.label} ${selDayObj.sub} · ` : ''}
               {selTime} – {addMinutes(selTime, BOOKING_MINUTES)} ({BOOKING_MINUTES} min) ·{' '}
-              {selDay ? CATEGORY_LABEL[challengeCategory(selDay, selTime)] : 'pick a day'}
+              {selDayObj ? CATEGORY_LABEL[challengeCategory(selDayObj.day, selTime)] : 'pick a day'}
             </Text>
 
             <Pressable
               style={[
                 styles.button,
-                (!selDay || !partner.trim()) && styles.buttonDisabled,
+                (selDay === null || !partner.trim()) && styles.buttonDisabled,
               ]}
               onPress={onPropose}
-              disabled={!selDay || !partner.trim()}
+              disabled={selDay === null || !partner.trim()}
             >
               <Text style={styles.buttonText}>
                 {!partner.trim()
                   ? 'Add your partner'
-                  : selDay
-                    ? `Propose · ${selDay} ${selTime}`
+                  : selDayObj
+                    ? `Propose · ${selDayObj.label} ${selTime}`
                     : 'Pick a day first'}
               </Text>
             </Pressable>
@@ -1062,6 +1081,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dayBtnTextOn: {
+    color: NAVY,
+  },
+  dayBtnSub: {
+    color: MUTED,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  dayBtnSubOn: {
     color: NAVY,
   },
   timeRow: {

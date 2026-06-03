@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Challenge, ChallengeStatus, Club, Country, Court, CourtStatus, Match, Player } from './data';
+import { w3wToCoords } from './w3w';
 import { supabase } from './supabase';
 
 // Returned by every mutation so callers can react to failure instead of
@@ -486,6 +487,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!clubId) return { error: 'Pick or name a club.' };
 
     const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+    // If a w3w address resolves, prefer those coordinates over a manual pin.
+    let lat = input.lat;
+    let lng = input.lng;
+    if (input.w3w) {
+      const resolved = await w3wToCoords(input.w3w);
+      if (resolved) {
+        lat = resolved.lat;
+        lng = resolved.lng;
+      }
+    }
     const { data, error: err } = await supabase
       .from('courts')
       .insert({
@@ -494,8 +505,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         champion1: input.champions[0],
         champion2: input.champions[1],
         w3w: input.w3w,
-        lat: input.lat,
-        lng: input.lng,
+        lat,
+        lng,
         status: 'pending',
         created_by: userId,
       })
@@ -519,9 +530,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function updateCourtW3W(courtId: string, w3w: string): Promise<Result> {
+    // Save the new w3w, then try to resolve coords from it so the pin matches.
+    const resolved = w3w ? await w3wToCoords(w3w) : null;
+    const patch: { w3w: string; lat?: number; lng?: number } = { w3w };
+    if (resolved) {
+      patch.lat = resolved.lat;
+      patch.lng = resolved.lng;
+    }
     const { data, error: err } = await supabase
       .from('courts')
-      .update({ w3w })
+      .update(patch)
       .eq('id', courtId)
       .select()
       .single();

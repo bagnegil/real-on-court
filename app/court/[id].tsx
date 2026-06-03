@@ -29,6 +29,7 @@ import { currentReignStart, DAY_MS } from '../../reigns';
 import { PlayerName } from '../../PlayerName';
 import { LocationPicker } from '../../LocationPicker';
 import { NameSuggest } from '../../NameSuggest';
+import { w3wToCoords } from '../../w3w';
 import { crownImg } from '../../images';
 
 function Pair({ p }: { p: [string, string] }) {
@@ -599,17 +600,35 @@ export default function CourtDetailScreen() {
               </View>
             </View>
           ) : (
-            <Pressable
-              onPress={() => {
-                setLocInput(w3wWords ?? '');
-                setLocLat(court!.lat);
-                setLocLng(court!.lng);
-                setEditLoc(true);
-              }}
-              hitSlop={8}
-            >
-              <Text style={styles.editLocLink}>✏️ Edit location</Text>
-            </Pressable>
+            <>
+              <Pressable
+                onPress={() => {
+                  setLocInput(w3wWords ?? '');
+                  setLocLat(court!.lat);
+                  setLocLng(court!.lng);
+                  setEditLoc(true);
+                }}
+                hitSlop={8}
+              >
+                <Text style={styles.editLocLink}>✏️ Edit location</Text>
+              </Pressable>
+              {w3wWords ? (
+                <Pressable
+                  onPress={async () => {
+                    const r = await w3wToCoords(w3wWords);
+                    if (!r) {
+                      flash('✗ Could not resolve w3w');
+                      return;
+                    }
+                    const res = await updateCourtCoords(court!.id, r.lat, r.lng);
+                    if (!res.error) flash('✓ Pin synced from w3w');
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.editLocLink}>📍 Sync pin from w3w</Text>
+                </Pressable>
+              ) : null}
+            </>
           )
         ) : null}
 

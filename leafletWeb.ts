@@ -16,3 +16,14 @@ export function loadLeaflet(): Promise<any> {
     doc.head.appendChild(script);
   });
 }
+
+// d3-delaunay for computing Voronoi polygons (court "territories" on the map).
+export function loadD3Delaunay(): Promise<any> {
+  return new Promise((resolve) => {
+    if (g.d3?.Delaunay) return resolve(g.d3);
+    const s = g.document.createElement('script');
+    s.src = 'https://unpkg.com/d3-delaunay@6/dist/d3-delaunay.min.js';
+    s.onload = () => resolve(g.d3);
+    g.document.head.appendChild(s);
+  });
+}

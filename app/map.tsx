@@ -3,7 +3,17 @@ import { Stack } from 'expo-router';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { CREAM, MUTED, NAVY } from '../theme';
 import { useStore } from '../store';
-import { loadLeaflet } from '../leafletWeb';
+import { loadD3Delaunay, loadLeaflet } from '../leafletWeb';
+
+// Deterministic colour for a champion pair: hash → HSL so the same pair always
+// gets the same hue. Vacant courts get muted grey.
+function pairColor(pair: [string, string] | null) {
+  if (!pair) return '#7c8595';
+  const key = [...pair].sort().join('|');
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 60%, 55%)`;
+}
 
 export default function MapScreen() {
   const { courts, getClub } = useStore();
@@ -26,6 +36,39 @@ export default function MapScreen() {
       const map = mapRef.current;
       (map._rocMarkers ?? []).forEach((m: any) => map.removeLayer(m));
       map._rocMarkers = [];
+      (map._rocPolys ?? []).forEach((p: any) => map.removeLayer(p));
+      map._rocPolys = [];
+
+      // Draw Voronoi territories under the markers — each court "owns" the
+      // area closest to it, coloured by its champion pair.
+      loadD3Delaunay().then((d3: any) => {
+        if (!d3?.Delaunay || pins.length === 0) return;
+        const pts = pins.map((c) => [c.lng as number, c.lat as number]);
+        const lngs = pts.map((p) => p[0]);
+        const lats = pts.map((p) => p[1]);
+        const pad = 10; // generous padding so cells extend well beyond the pins
+        const box: [number, number, number, number] = [
+          Math.min(...lngs) - pad,
+          Math.min(...lats) - pad,
+          Math.max(...lngs) + pad,
+          Math.max(...lats) + pad,
+        ];
+        const voronoi = d3.Delaunay.from(pts).voronoi(box);
+        pins.forEach((c, i) => {
+          const cell = voronoi.cellPolygon(i);
+          if (!cell) return;
+          const latlngs = cell.map(([lng, lat]: number[]) => [lat, lng]);
+          const color = pairColor(c.champions);
+          const poly = L.polygon(latlngs, {
+            color,
+            weight: 1.5,
+            fillColor: color,
+            fillOpacity: 0.32,
+          }).addTo(map);
+          map._rocPolys.push(poly);
+        });
+      });
+
       const bounds: [number, number][] = [];
       pins.forEach((c) => {
         const club = getClub(c.clubId);
